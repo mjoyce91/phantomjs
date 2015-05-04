@@ -3669,7 +3669,6 @@ if [ -z "$PERL" ]; then
 fi
 
 "$relpath/bin/syncqt.pl" -minimal -module QtCore "$relpath" || exit 1
-fi
 
 # $1: input variable name (awk regexp)
 # $2: optional output variable name
