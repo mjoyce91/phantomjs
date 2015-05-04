@@ -133,11 +133,16 @@ contains(CONFIG, plugin) {
     CMAKE_PLUGIN_NAME = $$PLUGIN_CLASS_NAME
 
     win32 {
-        isEmpty(CMAKE_STATIC_TYPE): CMAKE_PlUGIN_EXT = .dll
-        else: CMAKE_PlUGIN_EXT = .lib
-
-        CMAKE_PLUGIN_LOCATION_RELEASE = $$PLUGIN_TYPE/$${TARGET}$${CMAKE_PlUGIN_EXT}
-        CMAKE_PLUGIN_LOCATION_DEBUG = $$PLUGIN_TYPE/$${TARGET}d$${CMAKE_PlUGIN_EXT}
+        isEmpty(CMAKE_STATIC_TYPE) {
+            CMAKE_PLUGIN_LOCATION_RELEASE = $$PLUGIN_TYPE/$${TARGET}.dll
+            CMAKE_PLUGIN_LOCATION_DEBUG = $$PLUGIN_TYPE/$${TARGET}d.dll
+        } else:mingw {
+            CMAKE_PLUGIN_LOCATION_RELEASE = $$PLUGIN_TYPE/lib$${TARGET}.a
+            CMAKE_PLUGIN_LOCATION_DEBUG = $$PLUGIN_TYPE/lib$${TARGET}d.a
+        } else {                         # MSVC static
+            CMAKE_PLUGIN_LOCATION_RELEASE = $$PLUGIN_TYPE/$${TARGET}.lib
+            CMAKE_PLUGIN_LOCATION_DEBUG = $$PLUGIN_TYPE/$${TARGET}d.lib
+        }
     } else {
         mac {
             isEmpty(CMAKE_STATIC_TYPE): CMAKE_PlUGIN_EXT = .dylib
@@ -166,8 +171,6 @@ contains(CONFIG, plugin) {
     return()
 }
 
-contains($$list(network sql widgets gui), $$MODULE): CMAKE_LOAD_PLUGINS = true
-
 unix:contains(QT_CONFIG, reduce_relocations):CMAKE_ADD_FPIE_FLAGS = "true"
 
 CMAKE_MKSPEC = $$[QMAKE_XSPEC]
@@ -176,7 +179,7 @@ CMAKE_MODULE_DEPS = $$cmakeModuleList($$sort_depends(QT.$${MODULE}.depends, QT.)
 CMAKE_PARTIAL_MODULE_DEPS = $$replace(CMAKE_MODULE_DEPS, ";", ";Qt5::")
 !isEmpty(CMAKE_PARTIAL_MODULE_DEPS):CMAKE_QT5_MODULE_DEPS = "Qt5::$${CMAKE_PARTIAL_MODULE_DEPS}"
 
-CMAKE_QT_STEM = Qt$$eval(QT.$${MODULE}.MAJOR_VERSION)$${CMAKE_MODULE_NAME}$${QT_LIBINFIX}
+CMAKE_QT_STEM = Qt$$QT_MAJOR_VERSION$${CMAKE_MODULE_NAME}$${QT_LIBINFIX}
 
 mac {
     !isEmpty(CMAKE_STATIC_TYPE) {
@@ -239,6 +242,10 @@ mac {
         CMAKE_LIB_FILE_LOCATION_RELEASE = lib$${CMAKE_QT_STEM}.a
         CMAKE_PRL_FILE_LOCATION_DEBUG = lib$${CMAKE_QT_STEM}.prl
         CMAKE_PRL_FILE_LOCATION_RELEASE = lib$${CMAKE_QT_STEM}.prl
+    } else:unversioned_libname {
+        CMAKE_LIB_FILE_LOCATION_DEBUG = lib$${CMAKE_QT_STEM}.so
+        CMAKE_LIB_FILE_LOCATION_RELEASE = lib$${CMAKE_QT_STEM}.so
+        CMAKE_LIB_SONAME = lib$${CMAKE_QT_STEM}.so
     } else {
         CMAKE_LIB_FILE_LOCATION_DEBUG = lib$${CMAKE_QT_STEM}.so.$$eval(QT.$${MODULE}.VERSION)
         CMAKE_LIB_FILE_LOCATION_RELEASE = lib$${CMAKE_QT_STEM}.so.$$eval(QT.$${MODULE}.VERSION)
@@ -289,3 +296,16 @@ exists($$cmake_macros_file.input) {
 }
 
 cmake_qt5_module_files.path = $$[QT_INSTALL_LIBS]/cmake/Qt5$${CMAKE_MODULE_NAME}
+
+# We are generating cmake files. Most developers of Qt are not aware of cmake,
+# so we require automatic tests to be available. The only module which should
+# set CMAKE_MODULE_TESTS to '-' is enginio because that is known to be broken.
+# Other modules should either create proper tests in tests/auto/cmake or, as
+# a temporary measure, disable the generation of cmake files
+# with 'CONFIG -= create_cmake'
+!equals(CMAKE_MODULE_TESTS, -) {
+    isEmpty(CMAKE_MODULE_TESTS): CMAKE_MODULE_TESTS = $$MODULE_BASE_INDIR/tests/auto/cmake
+    !exists($$CMAKE_MODULE_TESTS): \
+        error("Missing CMake tests. Either create tests in tests/auto/cmake," \
+              "or disable cmake config file creation with CONFIG-=create_cmake.")
+}
