@@ -42,85 +42,30 @@
 #include <linux/limits.h>
 #include <stdint.h>
 #include <sys/types.h>
-#if !defined(__ANDROID__)
 #include <sys/user.h>
-#endif
 
+#include "client/linux/dump_writer_common/mapping_info.h"
+#include "client/linux/dump_writer_common/thread_info.h"
 #include "common/memory.h"
 #include "google_breakpad/common/minidump_format.h"
 
 namespace google_breakpad {
 
-#if defined(__i386) || defined(__x86_64)
-typedef typeof(((struct user*) 0)->u_debugreg[0]) debugreg_t;
-#endif
-
 // Typedef for our parsing of the auxv variables in /proc/pid/auxv.
-#if defined(__i386) || defined(__ARM_EABI__)
-#if !defined(__ANDROID__)
+#if defined(__i386) || defined(__ARM_EABI__) || \
+ (defined(__mips__) && _MIPS_SIM == _ABIO32)
 typedef Elf32_auxv_t elf_aux_entry;
-#else
-// Android is missing this structure definition
-typedef struct
-{
-  uint32_t a_type;              /* Entry type */
-  union
-    {
-      uint32_t a_val;           /* Integer value */
-    } a_un;
-} elf_aux_entry;
-
-#if !defined(AT_SYSINFO_EHDR)
-#define AT_SYSINFO_EHDR 33
-#endif
-#endif  // __ANDROID__
-#elif defined(__x86_64)
+#elif defined(__x86_64) || defined(__aarch64__) || \
+     (defined(__mips__) && _MIPS_SIM != _ABIO32)
 typedef Elf64_auxv_t elf_aux_entry;
 #endif
+
+typedef __typeof__(((elf_aux_entry*) 0)->a_un.a_val) elf_aux_val_t;
+
 // When we find the VDSO mapping in the process's address space, this
 // is the name we use for it when writing it to the minidump.
 // This should always be less than NAME_MAX!
 const char kLinuxGateLibraryName[] = "linux-gate.so";
-
-// We produce one of these structures for each thread in the crashed process.
-struct ThreadInfo {
-  pid_t tgid;   // thread group id
-  pid_t ppid;   // parent process
-
-  // Even on platforms where the stack grows down, the following will point to
-  // the smallest address in the stack.
-  const void* stack;  // pointer to the stack area
-  size_t stack_len;  // length of the stack to copy
-
-
-#if defined(__i386) || defined(__x86_64)
-  user_regs_struct regs;
-  user_fpregs_struct fpregs;
-  static const unsigned kNumDebugRegisters = 8;
-  debugreg_t dregs[8];
-#if defined(__i386)
-  user_fpxregs_struct fpxregs;
-#endif  // defined(__i386)
-
-#elif defined(__ARM_EABI__)
-  // Mimicking how strace does this(see syscall.c, search for GETREGS)
-#if defined(__ANDROID__)
-  struct pt_regs regs;
-#else
-  struct user_regs regs;
-  struct user_fpregs fpregs;
-#endif  // __ANDROID__
-#endif
-};
-
-// One of these is produced for each mapping in the process (i.e. line in
-// /proc/$x/maps).
-struct MappingInfo {
-  uintptr_t start_addr;
-  size_t size;
-  size_t offset;  // offset into the backed file.
-  char name[NAME_MAX];
-};
 
 class LinuxDumper {
  public:
@@ -146,6 +91,7 @@ class LinuxDumper {
   const wasteful_vector<pid_t> &threads() { return threads_; }
   const wasteful_vector<MappingInfo*> &mappings() { return mappings_; }
   const MappingInfo* FindMapping(const void* address) const;
+  const wasteful_vector<elf_aux_val_t>& auxv() { return auxv_; }
 
   // Find a block of memory to take as the stack given the top of stack pointer.
   //   stack: (output) the lowest address in the memory area
@@ -156,8 +102,8 @@ class LinuxDumper {
   PageAllocator* allocator() { return &allocator_; }
 
   // Copy content of |length| bytes from a given process |child|,
-  // starting from |src|, into |dest|.
-  virtual void CopyFromProcess(void* dest, pid_t child, const void* src,
+  // starting from |src|, into |dest|. Returns true on success.
+  virtual bool CopyFromProcess(void* dest, pid_t child, const void* src,
                                size_t length) = 0;
 
   // Builds a proc path for a certain pid for a node (/proc/<pid>/<node>).
@@ -167,20 +113,12 @@ class LinuxDumper {
   virtual bool BuildProcPath(char* path, pid_t pid, const char* node) const = 0;
 
   // Generate a File ID from the .text section of a mapped entry.
-  // If not a member, mapping_id is ignored.
+  // If not a member, mapping_id is ignored. This method can also manipulate the
+  // |mapping|.name to truncate "(deleted)" from the file name if necessary.
   bool ElfFileIdentifierForMapping(const MappingInfo& mapping,
                                    bool member,
                                    unsigned int mapping_id,
                                    uint8_t identifier[sizeof(MDGUID)]);
-
-  // Utility method to find the location of where the kernel has
-  // mapped linux-gate.so in memory(shows up in /proc/pid/maps as
-  // [vdso], but we can't guarantee that it's the only virtual dynamic
-  // shared object.  Parsing the auxilary vector for AT_SYSINFO_EHDR
-  // is the safest way to go.)
-  void* FindBeginningOfLinuxGateSharedLibrary(pid_t pid) const;
-  // Utility method to find the entry point location.
-  void* FindEntryPoint(pid_t pid) const;
 
   uintptr_t crash_address() const { return crash_address_; }
   void set_crash_address(uintptr_t crash_address) {
@@ -193,7 +131,20 @@ class LinuxDumper {
   pid_t crash_thread() const { return crash_thread_; }
   void set_crash_thread(pid_t crash_thread) { crash_thread_ = crash_thread; }
 
+  // Extracts the effective path and file name of from |mapping|. In most cases
+  // the effective name/path are just the mapping's path and basename. In some
+  // other cases, however, a library can be mapped from an archive (e.g., when
+  // loading .so libs from an apk on Android) and this method is able to
+  // reconstruct the original file name.
+  static void GetMappingEffectiveNameAndPath(const MappingInfo& mapping,
+                                             char* file_path,
+                                             size_t file_path_size,
+                                             char* file_name,
+                                             size_t file_name_size);
+
  protected:
+  bool ReadAuxv();
+
   virtual bool EnumerateMappings();
 
   virtual bool EnumerateThreads() = 0;
@@ -228,6 +179,9 @@ class LinuxDumper {
 
   // Info from /proc/<pid>/maps.
   wasteful_vector<MappingInfo*> mappings_;
+
+  // Info from /proc/<pid>/auxv
+  wasteful_vector<elf_aux_val_t> auxv_;
 };
 
 }  // namespace google_breakpad

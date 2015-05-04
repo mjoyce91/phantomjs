@@ -1,16 +1,18 @@
 #!/usr/bin/env python
 
-# Copyright (c) 2009 Google Inc. All rights reserved.
+# Copyright (c) 2012 Google Inc. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """
-Verifies file copies using an explicit build target of 'all'.
+Verifies file copies with --generator-output using an explicit build
+target of 'all'.
 """
 
 import TestGyp
 
-test = TestGyp.TestGyp()
+# Android doesn't support --generator-output.
+test = TestGyp.TestGyp(formats=['!android'])
 
 test.writable(test.workpath('copies'), False)
 
@@ -37,7 +39,7 @@ test.must_match(['relocate', 'copies', 'copies-out', 'file1'],
 
 if test.format == 'xcode':
   chdir = 'relocate/copies/build'
-elif test.format == 'make':
+elif test.format in ['make', 'ninja', 'cmake']:
   chdir = 'relocate/gypfiles/out'
 else:
   chdir = 'relocate/gypfiles'
@@ -48,7 +50,7 @@ test.must_match(['relocate', 'copies', 'subdir', 'copies-out', 'file3'],
 
 if test.format == 'xcode':
   chdir = 'relocate/copies/subdir/build'
-elif test.format == 'make':
+elif test.format in ['make', 'ninja', 'cmake']:
   chdir = 'relocate/gypfiles/out'
 else:
   chdir = 'relocate/gypfiles'

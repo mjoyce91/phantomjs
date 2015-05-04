@@ -39,26 +39,17 @@ AC_CANONICAL_HOST
 
 AM_INIT_AUTOMAKE(subdir-objects tar-ustar 1.11.1)
 AM_CONFIG_HEADER(src/config.h)
+AM_MAINTAINER_MODE
 
+AM_PROG_AS
 AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PROG_CPP
 AC_PROG_CXX
 AC_PROG_RANLIB
+AM_CONDITIONAL(GCC, test "$GCC" = yes)   # let the Makefile know if we're gcc
 
-AC_HEADER_STDC
-m4_include(m4/ax_pthread.m4)
-AX_PTHREAD
-AC_CHECK_HEADERS([a.out.h])
-
-# Only build Linux client libs when compiling for Linux
-case $host in
-     *-*-linux* | *-android* )
-        LINUX_HOST=true
-        ;;
-esac
-AM_CONDITIONAL(LINUX_HOST, test x$LINUX_HOST = xtrue)
-
+dnl This must come before all the feature tests below.
 AC_ARG_ENABLE(m32,
               AS_HELP_STRING([--enable-m32],
                              [Compile/build with -m32]
@@ -77,6 +68,28 @@ AC_ARG_ENABLE(m32,
                    ;;
                esac],
               [usem32=false])
+
+AC_HEADER_STDC
+AC_SYS_LARGEFILE
+m4_include(m4/ax_pthread.m4)
+AX_PTHREAD
+AC_CHECK_HEADERS([a.out.h])
+
+# Only build Linux client libs when compiling for Linux
+case $host in
+  *-*-linux* | *-android* )
+    LINUX_HOST=true
+    ;;
+esac
+AM_CONDITIONAL(LINUX_HOST, test x$LINUX_HOST = xtrue)
+
+# Only use Android support headers when compiling for Android
+case $host in
+  *-android*)
+    ANDROID_HOST=true
+    ;;
+esac
+AM_CONDITIONAL(ANDROID_HOST, test x$ANDROID_HOST = xtrue)
 
 AC_ARG_ENABLE(processor,
               AS_HELP_STRING([--disable-processor],
@@ -137,5 +150,10 @@ AC_ARG_ENABLE(selftest,
               [selftest=false])
 AM_CONDITIONAL(SELFTEST, test x$selftest = xtrue)
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES(m4_flatten([
+  breakpad.pc
+  breakpad-client.pc
+  Makefile
+]))
+
 AC_OUTPUT

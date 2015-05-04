@@ -32,7 +32,7 @@
 #include <string>
 #include <iostream>
 
-using std::string;
+#include "common/using_std_string.h"
 
 DEFINE_string(crash_server, "https://clients2.google.com/cr",
               "The crash server to upload minidumps to.");
@@ -59,7 +59,7 @@ DEFINE_string(proxy_userpasswd, "",
 
 
 bool CheckForRequiredFlagsOrDie() {
-  std::string error_text = "";
+  string error_text = "";
   if (FLAGS_product_name.empty()) {
     error_text.append("\nProduct name must be specified.");
   }
@@ -100,5 +100,5 @@ int main(int argc, char *argv[]) {
                                              FLAGS_crash_server,
                                              FLAGS_proxy_host,
                                              FLAGS_proxy_userpasswd);
-  g.Upload();
+  g.Upload(NULL, NULL, NULL);
 }

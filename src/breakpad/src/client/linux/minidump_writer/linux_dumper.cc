@@ -38,12 +38,14 @@
 #include "client/linux/minidump_writer/linux_dumper.h"
 
 #include <assert.h>
+#include <elf.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stddef.h>
 #include <string.h>
 
 #include "client/linux/minidump_writer/line_reader.h"
+#include "common/linux/elfutils.h"
 #include "common/linux/file_id.h"
 #include "common/linux/linux_libc_support.h"
 #include "common/linux/memory_mapped_file.h"
@@ -52,6 +54,7 @@
 
 static const char kMappedFileUnsafePrefix[] = "/dev/";
 static const char kDeletedSuffix[] = " (deleted)";
+static const char kReservedFlags[] = " ---p";
 
 inline static bool IsMappedFileOpenUnsafe(
     const google_breakpad::MappingInfo& mapping) {
@@ -66,28 +69,34 @@ inline static bool IsMappedFileOpenUnsafe(
 
 namespace google_breakpad {
 
+// All interesting auvx entry types are below AT_SYSINFO_EHDR
+#define AT_MAX AT_SYSINFO_EHDR
+
 LinuxDumper::LinuxDumper(pid_t pid)
     : pid_(pid),
       crash_address_(0),
       crash_signal_(0),
-      crash_thread_(0),
+      crash_thread_(pid),
       threads_(&allocator_, 8),
-      mappings_(&allocator_) {
+      mappings_(&allocator_),
+      auxv_(&allocator_, AT_MAX + 1) {
+  // The passed-in size to the constructor (above) is only a hint.
+  // Must call .resize() to do actual initialization of the elements.
+  auxv_.resize(AT_MAX + 1);
 }
 
 LinuxDumper::~LinuxDumper() {
 }
 
 bool LinuxDumper::Init() {
-  return EnumerateThreads() && EnumerateMappings();
+  return ReadAuxv() && EnumerateThreads() && EnumerateMappings();
 }
 
 bool
 LinuxDumper::ElfFileIdentifierForMapping(const MappingInfo& mapping,
                                          bool member,
                                          unsigned int mapping_id,
-                                         uint8_t identifier[sizeof(MDGUID)])
-{
+                                         uint8_t identifier[sizeof(MDGUID)]) {
   assert(!member || mapping_id < mappings_.size());
   my_memset(identifier, 0, sizeof(MDGUID));
   if (IsMappedFileOpenUnsafe(mapping))
@@ -95,30 +104,30 @@ LinuxDumper::ElfFileIdentifierForMapping(const MappingInfo& mapping,
 
   // Special-case linux-gate because it's not a real file.
   if (my_strcmp(mapping.name, kLinuxGateLibraryName) == 0) {
-    const uintptr_t kPageSize = getpagesize();
     void* linux_gate = NULL;
     if (pid_ == sys_getpid()) {
       linux_gate = reinterpret_cast<void*>(mapping.start_addr);
     } else {
-      linux_gate = allocator_.Alloc(kPageSize);
+      linux_gate = allocator_.Alloc(mapping.size);
       CopyFromProcess(linux_gate, pid_,
                       reinterpret_cast<const void*>(mapping.start_addr),
-                      kPageSize);
+                      mapping.size);
     }
     return FileID::ElfFileIdentifierFromMappedFile(linux_gate, identifier);
   }
 
   char filename[NAME_MAX];
   size_t filename_len = my_strlen(mapping.name);
-  assert(filename_len < NAME_MAX);
-  if (filename_len >= NAME_MAX)
+  if (filename_len >= NAME_MAX) {
+    assert(false);
     return false;
-  memcpy(filename, mapping.name, filename_len);
+  }
+  my_memcpy(filename, mapping.name, filename_len);
   filename[filename_len] = '\0';
   bool filename_modified = HandleDeletedFileInMapping(filename);
 
-  MemoryMappedFile mapped_file(filename);
-  if (!mapped_file.data())  // Should probably check if size >= ElfW(Ehdr)?
+  MemoryMappedFile mapped_file(filename, mapping.offset);
+  if (!mapped_file.data() || mapped_file.size() < SELFMAG)
     return false;
 
   bool success =
@@ -131,58 +140,144 @@ LinuxDumper::ElfFileIdentifierForMapping(const MappingInfo& mapping,
   return success;
 }
 
-void*
-LinuxDumper::FindBeginningOfLinuxGateSharedLibrary(pid_t pid) const {
-  char auxv_path[NAME_MAX];
-  if (!BuildProcPath(auxv_path, pid, "auxv"))
-    return NULL;
-
-  // Find the AT_SYSINFO_EHDR entry for linux-gate.so
-  // See http://www.trilithium.com/johan/2005/08/linux-gate/ for more
-  // information.
-  int fd = sys_open(auxv_path, O_RDONLY, 0);
-  if (fd < 0) {
-    return NULL;
+namespace {
+bool ElfFileSoNameFromMappedFile(
+    const void* elf_base, char* soname, size_t soname_size) {
+  if (!IsValidElf(elf_base)) {
+    // Not ELF
+    return false;
   }
 
-  elf_aux_entry one_aux_entry;
-  while (sys_read(fd,
-                  &one_aux_entry,
-                  sizeof(elf_aux_entry)) == sizeof(elf_aux_entry) &&
-         one_aux_entry.a_type != AT_NULL) {
-    if (one_aux_entry.a_type == AT_SYSINFO_EHDR) {
-      close(fd);
-      return reinterpret_cast<void*>(one_aux_entry.a_un.a_val);
+  const void* segment_start;
+  size_t segment_size;
+  int elf_class;
+  if (!FindElfSection(elf_base, ".dynamic", SHT_DYNAMIC,
+                      &segment_start, &segment_size, &elf_class)) {
+    // No dynamic section
+    return false;
+  }
+
+  const void* dynstr_start;
+  size_t dynstr_size;
+  if (!FindElfSection(elf_base, ".dynstr", SHT_STRTAB,
+                      &dynstr_start, &dynstr_size, &elf_class)) {
+    // No dynstr section
+    return false;
+  }
+
+  const ElfW(Dyn)* dynamic = static_cast<const ElfW(Dyn)*>(segment_start);
+  size_t dcount = segment_size / sizeof(ElfW(Dyn));
+  for (const ElfW(Dyn)* dyn = dynamic; dyn < dynamic + dcount; ++dyn) {
+    if (dyn->d_tag == DT_SONAME) {
+      const char* dynstr = static_cast<const char*>(dynstr_start);
+      if (dyn->d_un.d_val >= dynstr_size) {
+        // Beyond the end of the dynstr section
+        return false;
+      }
+      const char* str = dynstr + dyn->d_un.d_val;
+      const size_t maxsize = dynstr_size - dyn->d_un.d_val;
+      my_strlcpy(soname, str, maxsize < soname_size ? maxsize : soname_size);
+      return true;
     }
   }
-  close(fd);
-  return NULL;
+
+  // Did not find SONAME
+  return false;
 }
 
-void*
-LinuxDumper::FindEntryPoint(pid_t pid) const {
+// Find the shared object name (SONAME) by examining the ELF information
+// for |mapping|. If the SONAME is found copy it into the passed buffer
+// |soname| and return true. The size of the buffer is |soname_size|.
+// The SONAME will be truncated if it is too long to fit in the buffer.
+bool ElfFileSoName(
+    const MappingInfo& mapping, char* soname, size_t soname_size) {
+  if (IsMappedFileOpenUnsafe(mapping)) {
+    // Not safe
+    return false;
+  }
+
+  char filename[NAME_MAX];
+  size_t filename_len = my_strlen(mapping.name);
+  if (filename_len >= NAME_MAX) {
+    assert(false);
+    // name too long
+    return false;
+  }
+
+  my_memcpy(filename, mapping.name, filename_len);
+  filename[filename_len] = '\0';
+
+  MemoryMappedFile mapped_file(filename, mapping.offset);
+  if (!mapped_file.data() || mapped_file.size() < SELFMAG) {
+    // mmap failed
+    return false;
+  }
+
+  return ElfFileSoNameFromMappedFile(mapped_file.data(), soname, soname_size);
+}
+
+}  // namespace
+
+
+// static
+void LinuxDumper::GetMappingEffectiveNameAndPath(const MappingInfo& mapping,
+                                                 char* file_path,
+                                                 size_t file_path_size,
+                                                 char* file_name,
+                                                 size_t file_name_size) {
+  my_strlcpy(file_path, mapping.name, file_path_size);
+
+  // If an executable is mapped from a non-zero offset, this is likely because
+  // the executable was loaded directly from inside an archive file (e.g., an
+  // apk on Android). We try to find the name of the shared object (SONAME) by
+  // looking in the file for ELF sections.
+  bool mapped_from_archive = false;
+  if (mapping.exec && mapping.offset != 0)
+    mapped_from_archive = ElfFileSoName(mapping, file_name, file_name_size);
+
+  if (mapped_from_archive) {
+    // Some tools (e.g., stackwalk) extract the basename from the pathname. In
+    // this case, we append the file_name to the mapped archive path as follows:
+    //   file_name := libname.so
+    //   file_path := /path/to/ARCHIVE.APK/libname.so
+    if (my_strlen(file_path) + 1 + my_strlen(file_name) < file_path_size) {
+      my_strlcat(file_path, "/", file_path_size);
+      my_strlcat(file_path, file_name, file_path_size);
+    }
+  } else {
+    // Common case:
+    //   file_path := /path/to/libname.so
+    //   file_name := libname.so
+    const char* basename = my_strrchr(file_path, '/');
+    basename = basename == NULL ? file_path : (basename + 1);
+    my_strlcpy(file_name, basename, file_name_size);
+  }
+}
+
+bool LinuxDumper::ReadAuxv() {
   char auxv_path[NAME_MAX];
-  if (!BuildProcPath(auxv_path, pid, "auxv"))
-    return NULL;
+  if (!BuildProcPath(auxv_path, pid_, "auxv")) {
+    return false;
+  }
 
   int fd = sys_open(auxv_path, O_RDONLY, 0);
   if (fd < 0) {
-    return NULL;
+    return false;
   }
 
-  // Find the AT_ENTRY entry
   elf_aux_entry one_aux_entry;
+  bool res = false;
   while (sys_read(fd,
                   &one_aux_entry,
                   sizeof(elf_aux_entry)) == sizeof(elf_aux_entry) &&
          one_aux_entry.a_type != AT_NULL) {
-    if (one_aux_entry.a_type == AT_ENTRY) {
-      close(fd);
-      return reinterpret_cast<void*>(one_aux_entry.a_un.a_val);
+    if (one_aux_entry.a_type <= AT_MAX) {
+      auxv_[one_aux_entry.a_type] = one_aux_entry.a_un.a_val;
+      res = true;
     }
   }
-  close(fd);
-  return NULL;
+  sys_close(fd);
+  return res;
 }
 
 bool LinuxDumper::EnumerateMappings() {
@@ -192,15 +287,17 @@ bool LinuxDumper::EnumerateMappings() {
 
   // linux_gate_loc is the beginning of the kernel's mapping of
   // linux-gate.so in the process.  It doesn't actually show up in the
-  // maps list as a filename, so we use the aux vector to find it's
-  // load location and special case it's entry when creating the list
-  // of mappings.
-  const void* linux_gate_loc;
-  linux_gate_loc = FindBeginningOfLinuxGateSharedLibrary(pid_);
+  // maps list as a filename, but it can be found using the AT_SYSINFO_EHDR
+  // aux vector entry, which gives the information necessary to special
+  // case its entry when creating the list of mappings.
+  // See http://www.trilithium.com/johan/2005/08/linux-gate/ for more
+  // information.
+  const void* linux_gate_loc =
+      reinterpret_cast<void *>(auxv_[AT_SYSINFO_EHDR]);
   // Although the initial executable is usually the first mapping, it's not
   // guaranteed (see http://crosbug.com/25355); therefore, try to use the
   // actual entry point to find the mapping.
-  const void* entry_point_loc = FindEntryPoint(pid_);
+  const void* entry_point_loc = reinterpret_cast<void *>(auxv_[AT_ENTRY]);
 
   const int fd = sys_open(maps_path, O_RDONLY, 0);
   if (fd < 0)
@@ -216,6 +313,7 @@ bool LinuxDumper::EnumerateMappings() {
     if (*i1 == '-') {
       const char* i2 = my_read_hex_ptr(&end_addr, i1 + 1);
       if (*i2 == ' ') {
+        bool exec = (*(i2 + 3) == 'x');
         const char* i3 = my_read_hex_ptr(&offset, i2 + 6 /* skip ' rwxp ' */);
         if (*i3 == ' ') {
           const char* name = NULL;
@@ -239,15 +337,33 @@ bool LinuxDumper::EnumerateMappings() {
               continue;
             }
           }
+          // Also merge mappings that result from address ranges that the
+          // linker reserved but which a loaded library did not use. These
+          // appear as an anonymous private mapping with no access flags set
+          // and which directly follow an executable mapping.
+          if (!name && !mappings_.empty()) {
+            MappingInfo* module = mappings_.back();
+            if ((start_addr == module->start_addr + module->size) &&
+                module->exec &&
+                module->name[0] == '/' &&
+                offset == 0 && my_strncmp(i2,
+                                          kReservedFlags,
+                                          sizeof(kReservedFlags) - 1) == 0) {
+              module->size = end_addr - module->start_addr;
+              line_reader->PopLine(line_len);
+              continue;
+            }
+          }
           MappingInfo* const module = new(allocator_) MappingInfo;
-          memset(module, 0, sizeof(MappingInfo));
+          my_memset(module, 0, sizeof(MappingInfo));
           module->start_addr = start_addr;
           module->size = end_addr - start_addr;
           module->offset = offset;
+          module->exec = exec;
           if (name != NULL) {
             const unsigned l = my_strlen(name);
             if (l < sizeof(module->name))
-              memcpy(module->name, name, l);
+              my_memcpy(module->name, name, l);
           }
           // If this is the entry-point mapping, and it's not already the
           // first one, then we need to make it be first.  This is because
@@ -296,7 +412,8 @@ bool LinuxDumper::GetStackInfo(const void** stack, size_t* stack_len,
   const MappingInfo* mapping = FindMapping(stack_pointer);
   if (!mapping)
     return false;
-  const ptrdiff_t offset = stack_pointer - (uint8_t*) mapping->start_addr;
+  const ptrdiff_t offset = stack_pointer -
+      reinterpret_cast<uint8_t*>(mapping->start_addr);
   const ptrdiff_t distance_to_end =
       static_cast<ptrdiff_t>(mapping->size) - offset;
   *stack_len = distance_to_end > kStackToCapture ?
@@ -351,7 +468,7 @@ bool LinuxDumper::HandleDeletedFileInMapping(char* path) const {
     return false;
   }
 
-  memcpy(path, exe_link, NAME_MAX);
+  my_memcpy(path, exe_link, NAME_MAX);
   return true;
 }
 
