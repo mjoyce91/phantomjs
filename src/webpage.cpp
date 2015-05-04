@@ -369,12 +369,6 @@ WebPage::WebPage(QObject *parent, const QUrl &baseUrl)
     connect(m_customWebPage, SIGNAL(loadProgress(int)), this, SLOT(updateLoadingProgress(int)));
     connect(m_customWebPage, SIGNAL(repaintRequested(QRect)), this, SLOT(handleRepaintRequested(QRect)), Qt::QueuedConnection);
 
-
-    // Start with transparent background.
-    QPalette palette = m_customWebPage->palette();
-    palette.setBrush(QPalette::Base, Qt::transparent);
-    m_customWebPage->setPalette(palette);
-
     // Set the page Library path
     setLibraryPath(QFileInfo(phantomCfg->scriptFile()).dir().absolutePath());
 
