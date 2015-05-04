@@ -106,10 +106,10 @@ q_wgetenv(const wchar_t *varName)
 //
 
 #ifdef Q_OS_WIN32
-#define CRASH_DUMP_FMT "%ls\\%ls.dmp"
+#define CRASH_DUMP_FMT "%ls"
 #define CRASH_DIR_FMT  "%%TEMP%% (%ls)"
 #else
-#define CRASH_DUMP_FMT "%s/%s.dmp"
+#define CRASH_DUMP_FMT "%s"
 #define CRASH_DIR_FMT  "$TMPDIR (%s)"
 #endif
 
@@ -127,15 +127,13 @@ q_wgetenv(const wchar_t *varName)
     "Unfortunately, no crash dump is available.\n" \
     "(Is " CRASH_DIR_FMT " a directory you cannot write?)\n"
 
-static bool minidumpCallback(MDC_PATH_ARG dump_path,
-                             MDC_PATH_ARG minidump_id,
-                             MDC_EXTRA_ARGS,
+static bool minidumpCallback(const google_breakpad::MinidumpDescriptor& descriptor,
+                             void* context,
                              bool succeeded)
 {
     if (succeeded)
-        fprintf(stderr, CRASH_MESSAGE_HAVE_DUMP, dump_path, minidump_id);
-    else
-        fprintf(stderr, CRASH_MESSAGE_NO_DUMP, dump_path);
+        fprintf(stderr, CRASH_MESSAGE_HAVE_DUMP, descriptor.path());
+
     return succeeded;
 }
 
@@ -162,8 +160,7 @@ static BreakpadEH *initBreakpad()
         dumpPath = varbuf.constData();
 #endif
 
-    return new BreakpadEH(dumpPath, NULL, minidumpCallback, NULL,
-                          EHC_EXTRA_ARGS);
+    return new BreakpadEH(google_breakpad::MinidumpDescriptor(dumpPath), NULL, minidumpCallback, NULL, true, -1);
 }
 #else // no HAVE_BREAKPAD
 #define initBreakpad() NULL
