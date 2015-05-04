@@ -309,6 +309,10 @@ void QWebSettingsPrivate::apply()
         settings->setNeedsSiteSpecificQuirks(value);
 
         settings->setUsesPageCache(WebCore::pageCache()->capacity());
+
+        value = attributes.value(QWebSettings::WebSecurityEnabled,
+                                       global->attributes.value(QWebSettings::WebSecurityEnabled));
+        settings->setWebSecurityEnabled(value);
     } else {
         QList<QWebSettingsPrivate*> settings = *::allSettings();
         for (int i = 0; i < settings.count(); ++i)
