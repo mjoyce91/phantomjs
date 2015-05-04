@@ -545,7 +545,7 @@ void Config::resetToDefaults()
     m_offlineStorageDefaultQuota = -1;
     m_diskCacheEnabled = false;
     m_maxDiskCacheSize = -1;
-    m_ignoreSslErrors = false;
+    m_ignoreSslErrors = true;
     m_localUrlAccessEnabled = true;
     m_localToRemoteUrlAccessEnabled = false;
     m_outputEncoding = "UTF-8";
