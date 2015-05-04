@@ -912,9 +912,9 @@ void QWebFrame::print(QPrinter *printer) const
 
     \sa addToJavaScriptWindowObject(), javaScriptWindowObjectCleared()
 */
-QVariant QWebFrame::evaluateJavaScript(const QString& scriptSource)
+QVariant QWebFrame::evaluateJavaScript(const QString& scriptSource, const QString& location)
 {
-    return d->evaluateJavaScript(scriptSource);
+    return d->evaluateJavaScript(scriptSource, location);
 }
 
 /*!
