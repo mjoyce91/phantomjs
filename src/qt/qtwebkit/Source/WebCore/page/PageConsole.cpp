@@ -161,7 +161,7 @@ void PageConsole::addMessage(MessageSource source, MessageLevel level, const Str
         return;
 
     if (callStack)
-        InspectorInstrumentation::addMessageToConsole(page, source, LogMessageType, level, message, callStack.get(), requestIdentifier);
+        InspectorInstrumentation::addMessageToConsole(page, source, LogMessageType, level, message, callStack, requestIdentifier);
     else
         InspectorInstrumentation::addMessageToConsole(page, source, LogMessageType, level, message, url, lineNumber, columnNumber, state, requestIdentifier);
 
@@ -171,12 +171,7 @@ void PageConsole::addMessage(MessageSource source, MessageLevel level, const Str
     if (page->settings()->privateBrowsingEnabled())
         return;
 
-    if (callStack) {
-        String stack = callStack->buildInspectorArray()->toJSONString();
-        page->chrome().client()->addMessageToConsole(source, level, message, lineNumber, columnNumber, url, stack);
-    } else {
-        page->chrome().client()->addMessageToConsole(source, level, message, lineNumber, columnNumber, url);
-    }
+    page->chrome().client()->addMessageToConsole(source, level, message, lineNumber, columnNumber, url);
 
     if (!page->settings()->logsPageMessagesToSystemConsoleEnabled() && !shouldPrintExceptions())
         return;

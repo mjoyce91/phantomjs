@@ -21,6 +21,7 @@
 #include "config.h"
 #include "qwebframe.h"
 
+#include "QtPrintContext.h"
 #include "qwebelement.h"
 #include "qwebframe_p.h"
 #include "qwebpage.h"
@@ -35,13 +36,10 @@
 #include <qfileinfo.h>
 #include <qpainter.h>
 #if HAVE(QTPRINTSUPPORT)
-#include "QtPrintContext.h"
 #include <qprinter.h>
 #endif
 #include <qnetworkrequest.h>
 #include <qregion.h>
-
-#include "qwebframe_printingaddons_p.h"
 
 using namespace WebCore;
 
@@ -827,16 +825,8 @@ bool QWebFrame::event(QEvent *e)
 */
 void QWebFrame::print(QPrinter *printer) const
 {
-    print(printer, 0);
-}
-
-void QWebFrame::print(QPrinter *printer, PrintCallback *callback) const
-{
 #if HAVE(QTPRINTSUPPORT)
     QPainter painter;
-
-    HeaderFooter headerFooter(this, printer, callback);
-
     if (!painter.begin(printer))
         return;
 
@@ -893,13 +883,6 @@ void QWebFrame::print(QPrinter *printer, PrintCallback *callback) const
                     || printer->printerState() == QPrinter::Error) {
                     return;
                 }
-                if (headerFooter.isValid()) {
-                    // print header/footer
-                    int logicalPage, logicalPages;
-                    d->frame->getPagination(page, printContext.pageCount(), logicalPage, logicalPages);
-                    headerFooter.paintHeader(printContext.graphicsContext(), pageRect, logicalPage, logicalPages);
-                    headerFooter.paintFooter(printContext.graphicsContext(), pageRect, logicalPage, logicalPages);
-                }
                 printContext.spoolPage(page - 1, pageRect.width());
                 if (j < pageCopies - 1)
                     printer->newPage();
@@ -929,9 +912,9 @@ void QWebFrame::print(QPrinter *printer, PrintCallback *callback) const
 
     \sa addToJavaScriptWindowObject(), javaScriptWindowObjectCleared()
 */
-QVariant QWebFrame::evaluateJavaScript(const QString& scriptSource, const QString& location)
+QVariant QWebFrame::evaluateJavaScript(const QString& scriptSource)
 {
-    return d->evaluateJavaScript(scriptSource, location);
+    return d->evaluateJavaScript(scriptSource);
 }
 
 /*!

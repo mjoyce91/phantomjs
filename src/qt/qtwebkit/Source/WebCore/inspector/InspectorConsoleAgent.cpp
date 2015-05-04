@@ -152,7 +152,7 @@ void InspectorConsoleAgent::clearFrontend()
     disable(&errorString);
 }
 
-void InspectorConsoleAgent::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, ScriptCallStack* callStack, unsigned long requestIdentifier)
+void InspectorConsoleAgent::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, PassRefPtr<ScriptCallStack> callStack, unsigned long requestIdentifier)
 {
     if (!developerExtrasEnabled())
         return;
@@ -165,7 +165,7 @@ void InspectorConsoleAgent::addMessageToConsole(MessageSource source, MessageTyp
     addConsoleMessage(adoptPtr(new ConsoleMessage(!isWorkerAgent(), source, type, level, message, callStack, requestIdentifier)));
 }
 
-void InspectorConsoleAgent::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, ScriptState* state, ScriptArguments* arguments, unsigned long requestIdentifier)
+void InspectorConsoleAgent::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, ScriptState* state, PassRefPtr<ScriptArguments> arguments, unsigned long requestIdentifier)
 {
     if (!developerExtrasEnabled())
         return;
@@ -226,7 +226,7 @@ void InspectorConsoleAgent::stopTiming(const String& title, PassRefPtr<ScriptCal
 
     double elapsed = monotonicallyIncreasingTime() - startTime;
     String message = title + String::format(": %.3fms", elapsed * 1000);
-    addMessageToConsole(ConsoleAPIMessageSource, TimingMessageType, DebugMessageLevel, message, callStack.get());
+    addMessageToConsole(ConsoleAPIMessageSource, TimingMessageType, DebugMessageLevel, message, callStack);
 }
 
 void InspectorConsoleAgent::count(ScriptState* state, PassRefPtr<ScriptArguments> arguments)
@@ -251,7 +251,7 @@ void InspectorConsoleAgent::count(ScriptState* state, PassRefPtr<ScriptArguments
     m_counts.add(identifier, count);
 
     String message = title + ": " + String::number(count);
-    addMessageToConsole(ConsoleAPIMessageSource, LogMessageType, DebugMessageLevel, message, callStack.get());
+    addMessageToConsole(ConsoleAPIMessageSource, LogMessageType, DebugMessageLevel, message, callStack);
 }
 
 void InspectorConsoleAgent::frameWindowDiscarded(DOMWindow* window)

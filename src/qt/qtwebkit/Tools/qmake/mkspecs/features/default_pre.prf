@@ -95,7 +95,7 @@ CONFIG += include_webinspector
 contains(QT_CONFIG, c++11): CONFIG += c++11
 
 # Limit the creation of thin archives to Linux, since only GNU's ar supports it.
-!debug_and_release:linux-g++*:!contains(QT_CONFIG, static) CONFIG += gnu_thin_archives
+!debug_and_release:linux: CONFIG += gnu_thin_archives
 
 # Pick up Qt's defaults for debug/release/debug_and_release
 if(win32|mac):!macx-xcode {
@@ -106,7 +106,7 @@ if(win32|mac):!macx-xcode {
 # A newer version of flex is required on Windows. At the moment the only
 # one that appears to provide binaries and is not cygwin is winflex.
 FLEX = flex
-win32: FLEX = win_flex
+equals(QMAKE_HOST.os, Windows): FLEX = win_flex
 
 BIN_EXTENSION =
 win32: BIN_EXTENSION = .exe

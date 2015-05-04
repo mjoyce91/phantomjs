@@ -26,7 +26,7 @@
 #include <QString>
 #include <qwebkitglobal.h>
 
-class QtPluginWidgetAdapter : public QObject {
+class WEBKIT_EXPORTDATA QtPluginWidgetAdapter : public QObject {
     Q_OBJECT
 public:
     QtPluginWidgetAdapter();

@@ -32,14 +32,13 @@ class GraphicsContext;
 
 class QWebFrameAdapter;
 
-class QtPrintContext {
+class WEBKIT_EXPORTDATA QtPrintContext {
 public:
     QtPrintContext(QPainter*, const QRect& pageRect, QWebFrameAdapter*);
     ~QtPrintContext();
 
     int pageCount() const;
     void spoolPage(int pageNumber, float width);
-    WebCore::GraphicsContext& graphicsContext() const;
 
 private:
     WebCore::GraphicsContext* m_graphicsContext;
