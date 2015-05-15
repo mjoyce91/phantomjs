@@ -55,6 +55,7 @@
 #include <QDebug>
 #include <QImageWriter>
 #include <QUuid>
+#include <QScreen>
 
 #include "phantom.h"
 #include "networkaccessmanager.h"
@@ -433,6 +434,8 @@ WebPage::WebPage(QObject* parent, const QUrl& baseUrl)
             SIGNAL(resourceTimeout(QVariant)));
 
     m_customWebPage->setViewportSize(QSize(400, 300));
+
+    m_dpi = qRound(QApplication::primaryScreen()->logicalDotsPerInch());
 }
 
 WebPage::~WebPage()
@@ -637,6 +640,8 @@ void WebPage::applySettings(const QVariantMap& def)
         m_networkAccessManager->setResourceTimeout(def[PAGE_SETTINGS_RESOURCE_TIMEOUT].toInt());
     }
 
+    if (def.contains(PAGE_SETTINGS_DPI))
+        m_dpi = def[PAGE_SETTINGS_DPI].toReal();
 }
 
 QString WebPage::userAgent() const
@@ -1110,9 +1115,7 @@ QImage WebPage::renderImage()
     return buffer;
 }
 
-#define PHANTOMJS_PDF_DPI 72            // Different defaults. OSX: 72, X11: 75(?), Windows: 96
-
-qreal stringToPointSize(const QString& string)
+qreal WebPage::stringToPointSize(const QString &string) const
 {
     static const struct {
         QString unit;
@@ -1121,8 +1124,8 @@ qreal stringToPointSize(const QString& string)
         { "mm", 72 / 25.4 },
         { "cm", 72 / 2.54 },
         { "in", 72 },
-        { "px", 72.0 / PHANTOMJS_PDF_DPI },
-        { "", 72.0 / PHANTOMJS_PDF_DPI }
+        { "px", 72.0 / m_dpi },
+        { "", 72.0 / m_dpi }
     };
     for (uint i = 0; i < sizeof(units) / sizeof(units[0]); ++i) {
         if (string.endsWith(units[i].unit)) {
@@ -1134,7 +1137,7 @@ qreal stringToPointSize(const QString& string)
     return 0;
 }
 
-qreal printMargin(const QVariantMap& map, const QString& key)
+qreal WebPage::printMargin(const QVariantMap &map, const QString &key)
 {
     const QVariant margin = map.value(key);
     if (margin.isValid() && margin.canConvert(QVariant::String)) {
@@ -1149,7 +1152,7 @@ bool WebPage::renderPdf(const QString& fileName)
     QPrinter printer;
     printer.setOutputFormat(QPrinter::PdfFormat);
     printer.setOutputFileName(fileName);
-    printer.setResolution(PHANTOMJS_PDF_DPI);
+    printer.setResolution(m_dpi);
     QVariantMap paperSize = m_paperSize;
 
     if (paperSize.isEmpty()) {
@@ -1262,7 +1265,7 @@ QString WebPage::windowName() const
     return m_mainFrame->evaluateJavaScript("window.name;").toString();
 }
 
-qreal getHeight(const QVariantMap& map, const QString& key)
+qreal WebPage::getHeight(const QVariantMap &map, const QString &key) const
 {
     QVariant footer = map.value(key);
     if (!footer.canConvert(QVariant::Map)) {
