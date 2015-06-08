@@ -45,7 +45,7 @@
 #if PLATFORM(MAC)
 #include "TextCodecMac.h"
 #endif
-#if OS(WINCE) && USE(WCHAR_UNICODE)
+#if OS(WINDOWS) && USE(WCHAR_UNICODE)
 #include "win/TextCodecWin.h"
 #endif
 
@@ -298,7 +298,7 @@ static void extendTextCodecMaps()
     TextCodecMac::registerCodecs(addToTextCodecMap);
 #endif
 
-#if OS(WINCE) && USE(WCHAR_UNICODE)
+#if OS(WINDOWS) && USE(WCHAR_UNICODE)
     TextCodecWin::registerExtendedEncodingNames(addToTextEncodingNameMap);
     TextCodecWin::registerExtendedCodecs(addToTextCodecMap);
 #endif
