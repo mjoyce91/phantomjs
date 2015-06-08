@@ -209,7 +209,10 @@ static QPixmap colorizedImage(const QString &fileName, const QColor &color, int 
                 unsigned char green = gray + qt_div_255(sourceGreen * colorDiff);
                 unsigned char blue = gray + qt_div_255(sourceBlue * colorDiff);
                 unsigned char alpha = qt_div_255(qAlpha(col) * qAlpha(source));
-                data[x] = qRgba(red, green, blue, alpha);
+                data[x] = qRgba(std::min(alpha, red),
+                                std::min(alpha, green),
+                                std::min(alpha, blue),
+                                alpha);
             }
         }
         if (rotation != 0) {
@@ -514,6 +517,9 @@ void QFusionStyle::drawPrimitive(PrimitiveElement elem,
             break;
         }
         arrow = colorizedImage(QLatin1String(":/qt-project.org/styles/commonstyle/images/fusion_arrow.png"), arrowColor, rotation);
+        if (arrow.isNull())
+            break;
+
         QRect rect = option->rect;
         QRect arrowRect;
         int imageMax = qMin(arrow.height(), arrow.width());
@@ -1735,8 +1741,8 @@ void QFusionStyle::drawControl(ControlElement element, const QStyleOption *optio
                     state = QIcon::On;
 
                 QPixmap pixmap = button->icon.pixmap(button->iconSize, mode, state);
-                int w = pixmap.width();
-                int h = pixmap.height();
+                int w = pixmap.width() / pixmap.devicePixelRatio();
+                int h = pixmap.height() / pixmap.devicePixelRatio();
 
                 if (!button->text.isEmpty())
                     w += button->fontMetrics.boundingRect(option->rect, tf, button->text).width() + 2;
@@ -1744,15 +1750,17 @@ void QFusionStyle::drawControl(ControlElement element, const QStyleOption *optio
                 point = QPoint(ir.x() + ir.width() / 2 - w / 2,
                                ir.y() + ir.height() / 2 - h / 2);
 
+                w = pixmap.width() / pixmap.devicePixelRatio();
+
                 if (button->direction == Qt::RightToLeft)
-                    point.rx() += pixmap.width();
+                    point.rx() += w;
 
                 painter->drawPixmap(visualPos(button->direction, button->rect, point), pixmap);
 
                 if (button->direction == Qt::RightToLeft)
                     ir.translate(-point.x() - 2, 0);
                 else
-                    ir.translate(point.x() + pixmap.width(), 0);
+                    ir.translate(point.x() + w, 0);
 
                 // left-align text if there is
                 if (!button->text.isEmpty())

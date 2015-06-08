@@ -430,7 +430,7 @@ void QWindowsContext::setKeyGrabber(QWindow *w)
 
 // Window class registering code (from qapplication_win.cpp)
 
-QString QWindowsContext::registerWindowClass(const QWindow *w, bool isGL)
+QString QWindowsContext::registerWindowClass(const QWindow *w)
 {
     Q_ASSERT(w);
     const Qt::WindowFlags flags = w->flags();
@@ -438,7 +438,9 @@ QString QWindowsContext::registerWindowClass(const QWindow *w, bool isGL)
     // Determine style and icon.
     uint style = CS_DBLCLKS;
     bool icon = true;
-    if (isGL || (flags & Qt::MSWindowsOwnDC))
+    // The following will not set CS_OWNDC for any widget window, even if it contains a
+    // QOpenGLWidget or QQuickWidget later on. That cannot be detected at this stage.
+    if (w->surfaceType() == QSurface::OpenGLSurface || (flags & Qt::MSWindowsOwnDC))
         style |= CS_OWNDC;
     if (!(flags & Qt::NoDropShadowWindowHint) && (QSysInfo::WindowsVersion & QSysInfo::WV_NT_based)
         && (type == Qt::Popup || w->property("_q_windowsDropShadow").toBool())) {
@@ -471,8 +473,6 @@ QString QWindowsContext::registerWindowClass(const QWindow *w, bool isGL)
     default:
         break;
     }
-    if (isGL)
-        cname += QStringLiteral("GL");
     if (style & CS_DROPSHADOW)
         cname += QStringLiteral("DropShadow");
     if (style & CS_SAVEBITS)
@@ -913,6 +913,8 @@ bool QWindowsContext::windowsProc(HWND hwnd, UINT message,
         return QWindowsInputContext::instance()->endComposition(hwnd);
     case QtWindows::InputMethodRequest:
         return QWindowsInputContext::instance()->handleIME_Request(wParam, lParam, result);
+    case QtWindows::GestureEvent:
+        return d->m_mouseHandler.translateTouchEvent(platformWindow->window(), hwnd, et, msg, result);
     case QtWindows::InputMethodOpenCandidateWindowEvent:
     case QtWindows::InputMethodCloseCandidateWindowEvent:
         // TODO: Release/regrab mouse if a popup has mouse grab.
@@ -1029,6 +1031,12 @@ bool QWindowsContext::windowsProc(HWND hwnd, UINT message,
             QWindowsWindow::baseWindowOf(platformWindow->window())->applyCursor();
             return true;
         }
+#endif
+    case QtWindows::ScrollEvent:
+#if !defined(Q_OS_WINCE) && !defined(QT_NO_SESSIONMANAGER)
+        return platformSessionManager()->isInteractionBlocked() ? true : d->m_mouseHandler.translateScrollEvent(platformWindow->window(), hwnd, msg, result);
+#else
+        return d->m_mouseHandler.translateScrollEvent(platformWindow->window(), hwnd, msg, result);
 #endif
     case QtWindows::MouseWheelEvent:
     case QtWindows::MouseEvent:

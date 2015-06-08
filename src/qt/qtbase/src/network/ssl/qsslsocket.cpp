@@ -301,19 +301,6 @@
 
 QT_BEGIN_NAMESPACE
 
-/*
-   Returns the difference between msecs and elapsed. If msecs is -1,
-   however, -1 is returned.
-*/
-static int qt_timeout_value(int msecs, int elapsed)
-{
-    if (msecs == -1)
-        return -1;
-
-    int timeout = msecs - elapsed;
-    return timeout < 0 ? 0 : timeout;
-}
-
 class QSslSocketGlobalData
 {
 public:
@@ -777,7 +764,7 @@ void QSslSocket::close()
     qCDebug(lcSsl) << "QSslSocket::close()";
 #endif
     Q_D(QSslSocket);
-    if (encryptedBytesToWrite())
+    if (encryptedBytesToWrite() || !d->writeBuffer.isEmpty())
         flush();
     if (d->plainSocket)
         d->plainSocket->close();
@@ -1081,6 +1068,7 @@ QSslCipher QSslSocket::sessionCipher() const
     is set during the handshake phase.
 
     \sa protocol(), setProtocol()
+    \since 5.4
 */
 QSsl::SslProtocol QSslSocket::sessionProtocol() const
 {
@@ -1517,7 +1505,7 @@ bool QSslSocket::waitForEncrypted(int msecs)
             startClientEncryption();
         // Loop, waiting until the connection has been encrypted or an error
         // occurs.
-        if (!d->plainSocket->waitForReadyRead(qt_timeout_value(msecs, stopWatch.elapsed())))
+        if (!d->plainSocket->waitForReadyRead(qt_subtract_from_timeout(msecs, stopWatch.elapsed())))
             return false;
     }
     return d->connectionEncrypted;
@@ -1561,7 +1549,7 @@ bool QSslSocket::waitForReadyRead(int msecs)
     // test readyReadEmitted first because either operation above
     // (waitForEncrypted or transmit) may have set it
     while (!readyReadEmitted &&
-           d->plainSocket->waitForReadyRead(qt_timeout_value(msecs, stopWatch.elapsed()))) {
+           d->plainSocket->waitForReadyRead(qt_subtract_from_timeout(msecs, stopWatch.elapsed()))) {
     }
 
     d->readyReadEmittedPointer = previousReadyReadEmittedPointer;
@@ -1592,7 +1580,7 @@ bool QSslSocket::waitForBytesWritten(int msecs)
         d->transmit();
     }
 
-    return d->plainSocket->waitForBytesWritten(qt_timeout_value(msecs, stopWatch.elapsed()));
+    return d->plainSocket->waitForBytesWritten(qt_subtract_from_timeout(msecs, stopWatch.elapsed()));
 }
 
 /*!
@@ -1625,7 +1613,7 @@ bool QSslSocket::waitForDisconnected(int msecs)
         if (!waitForEncrypted(msecs))
             return false;
     }
-    bool retVal = d->plainSocket->waitForDisconnected(qt_timeout_value(msecs, stopWatch.elapsed()));
+    bool retVal = d->plainSocket->waitForDisconnected(qt_subtract_from_timeout(msecs, stopWatch.elapsed()));
     if (!retVal) {
         setSocketState(d->plainSocket->state());
         setSocketError(d->plainSocket->error());

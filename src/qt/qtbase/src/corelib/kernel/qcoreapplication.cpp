@@ -663,7 +663,7 @@ QCoreApplication::QCoreApplication(QCoreApplicationPrivate &p)
 
     If you are doing graphical changes inside a loop that does not
     return to the event loop on asynchronous window systems like X11
-    or double buffered window systems like Mac OS X, and you want to
+    or double buffered window systems like Quartz (OS X and iOS), and you want to
     visualize these changes immediately (e.g. Splash Screens), call
     this function.
 
@@ -1975,7 +1975,7 @@ void QCoreApplicationPrivate::setApplicationFilePath(const QString &path)
     directory, and you run the \c{regexp} example, this function will
     return "C:/Qt/examples/tools/regexp".
 
-    On Mac OS X this will point to the directory actually containing the
+    On OS X and iOS this will point to the directory actually containing the
     executable, which may be inside of an application bundle (if the
     application is bundled).
 
@@ -2399,7 +2399,7 @@ Q_GLOBAL_STATIC_WITH_ARGS(QMutex, libraryPathMutex, (QMutex::Recursive))
     INSTALL/plugins, where \c INSTALL is the directory where Qt was
     installed).  The directory of the application executable (NOT the
     working directory) is always added, as well as the colon separated
-    entries of the QT_PLUGIN_PATH environment variable.
+    entries of the \c QT_PLUGIN_PATH environment variable.
 
     If you want to iterate over the list, you can use the \l foreach
     pseudo-keyword:
@@ -2544,7 +2544,7 @@ void QCoreApplication::removeLibraryPath(const QString &path)
     \note Native event filters will be disabled when the application the
     Qt::AA_MacPluginApplication attribute is set.
 
-    For maximum portability, you should always try to use QEvents
+    For maximum portability, you should always try to use QEvent
     and QObject::installEventFilter() whenever possible.
 
     \sa QObject::installEventFilter()

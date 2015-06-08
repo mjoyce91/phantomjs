@@ -1044,9 +1044,9 @@ bool QProcessPrivate::_q_processDied()
         return false;
 #endif
 #ifdef Q_OS_WIN
-    drainOutputPipes();
     if (processFinishedNotifier)
         processFinishedNotifier->setEnabled(false);
+    drainOutputPipes();
 #endif
 
     // the process may have died before it got a chance to report that it was
@@ -1446,7 +1446,7 @@ void QProcess::setStandardErrorFile(const QString &fileName, OpenMode mode)
     The following shell command:
     \snippet code/src_corelib_io_qprocess.cpp 2
 
-    Can be accomplished with QProcesses with the following code:
+    Can be accomplished with QProcess with the following code:
     \snippet code/src_corelib_io_qprocess.cpp 3
 */
 void QProcess::setStandardOutputProcess(QProcess *destination)
@@ -1793,8 +1793,7 @@ bool QProcess::waitForBytesWritten(int msecs)
         bool started = waitForStarted(msecs);
         if (!started)
             return false;
-        if (msecs != -1)
-            msecs -= stopWatch.elapsed();
+        msecs = qt_subtract_from_timeout(msecs, stopWatch.elapsed());
     }
 
     return d->waitForBytesWritten(msecs);
@@ -1830,8 +1829,7 @@ bool QProcess::waitForFinished(int msecs)
         bool started = waitForStarted(msecs);
         if (!started)
             return false;
-        if (msecs != -1)
-            msecs -= stopWatch.elapsed();
+        msecs = qt_subtract_from_timeout(msecs, stopWatch.elapsed());
     }
 
     return d->waitForFinished(msecs);

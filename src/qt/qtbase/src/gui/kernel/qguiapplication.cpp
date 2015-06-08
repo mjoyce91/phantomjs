@@ -226,9 +226,7 @@ struct QWindowGeometrySpecification
 {
     QWindowGeometrySpecification() : corner(Qt::TopLeftCorner), xOffset(-1), yOffset(-1), width(-1), height(-1) {}
     static QWindowGeometrySpecification fromArgument(const QByteArray &a);
-    QRect apply(const QRect &windowGeometry, const QSize &windowMinimumSize, const QSize &windowMaximumSize, const QRect &availableGeometry) const;
-    inline QRect apply(const QRect &windowGeometry, const QWindow *window) const
-    { return apply(windowGeometry, window->minimumSize(), window->maximumSize(), window->screen()->virtualGeometry()); }
+    void applyTo(QWindow *window) const;
 
     Qt::Corner corner;
     int xOffset;
@@ -290,32 +288,34 @@ QWindowGeometrySpecification QWindowGeometrySpecification::fromArgument(const QB
     return result;
 }
 
-QRect QWindowGeometrySpecification::apply(const QRect &windowGeometry, const QSize &windowMinimumSize, const QSize &windowMaximumSize, const QRect &availableGeometry) const
+void QWindowGeometrySpecification::applyTo(QWindow *window) const
 {
-    QRect result = windowGeometry;
+    QRect windowGeometry = window->frameGeometry();
+    QSize size = windowGeometry.size();
     if (width >= 0 || height >= 0) {
-        QSize size = windowGeometry.size();
+        const QSize windowMinimumSize = window->minimumSize();
+        const QSize windowMaximumSize = window->maximumSize();
         if (width >= 0)
             size.setWidth(qBound(windowMinimumSize.width(), width, windowMaximumSize.width()));
         if (height >= 0)
             size.setHeight(qBound(windowMinimumSize.height(), height, windowMaximumSize.height()));
-        result.setSize(size);
+        window->resize(size);
     }
     if (xOffset >= 0 || yOffset >= 0) {
+        const QRect availableGeometry = window->screen()->virtualGeometry();
         QPoint topLeft = windowGeometry.topLeft();
         if (xOffset >= 0) {
             topLeft.setX(corner == Qt::TopLeftCorner || corner == Qt::BottomLeftCorner ?
                          xOffset :
-                         qMax(availableGeometry.right() - result.width() - xOffset, availableGeometry.left()));
+                         qMax(availableGeometry.right() - size.width() - xOffset, availableGeometry.left()));
         }
         if (yOffset >= 0) {
             topLeft.setY(corner == Qt::TopLeftCorner || corner == Qt::TopRightCorner ?
                          yOffset :
-                         qMax(availableGeometry.bottom() - result.height() - yOffset, availableGeometry.top()));
+                         qMax(availableGeometry.bottom() - size.height() - yOffset, availableGeometry.top()));
         }
-        result.moveTopLeft(topLeft);
+        window->setFramePosition(topLeft);
     }
-    return result;
 }
 
 static QWindowGeometrySpecification windowGeometrySpecification;
@@ -1682,14 +1682,12 @@ void QGuiApplicationPrivate::processMouseEvent(QWindowSystemInterfacePrivate::Mo
     if (e->globalPos != QGuiApplicationPrivate::lastCursorPosition && (stateChange != Qt::NoButton)) {
         // A mouse event should not change both position and buttons at the same time. Instead we
         // should first send a move event followed by a button changed event. Since this is not the case
-        // with the current event, we fake a move-only event that we recurse and process first. This
-        // will update the global mouse position and cause the second event to be a button only event.
-        QWindowSystemInterfacePrivate::MouseEvent moveEvent(e->window.data(),
-                e->timestamp, e->type, e->localPos, e->globalPos, buttons, e->modifiers, e->source);
-        moveEvent.synthetic = e->synthetic;
-        processMouseEvent(&moveEvent);
-        Q_ASSERT(e->globalPos == QGuiApplicationPrivate::lastCursorPosition);
-        // continue with processing mouse button change event
+        // with the current event, we split it in two.
+        QWindowSystemInterfacePrivate::MouseEvent *mouseButtonEvent = new QWindowSystemInterfacePrivate::MouseEvent(
+                    e->window.data(), e->timestamp, e->type, e->localPos, e->globalPos, e->buttons, e->modifiers);
+        mouseButtonEvent->synthetic = e->synthetic;
+        QWindowSystemInterfacePrivate::windowSystemEventQueue.prepend(mouseButtonEvent);
+        stateChange = Qt::NoButton;
     }
 
     QWindow *window = e->window.data();
@@ -2578,9 +2576,14 @@ void QGuiApplicationPrivate::reportRefreshRateChange(QWindowSystemInterfacePriva
         return;
 
     QScreen *s = e->screen.data();
-    s->d_func()->refreshRate = e->rate;
-
-    emit s->refreshRateChanged(s->refreshRate());
+    qreal rate = e->rate;
+    // safeguard ourselves against buggy platform behavior...
+    if (rate < 1.0)
+        rate = 60.0;
+    if (!qFuzzyCompare(s->d_func()->refreshRate, rate)) {
+        s->d_func()->refreshRate = rate;
+        emit s->refreshRateChanged(s->refreshRate());
+    }
 }
 
 void QGuiApplicationPrivate::processExposeEvent(QWindowSystemInterfacePrivate::ExposeEvent *e)
@@ -2727,9 +2730,9 @@ void QGuiApplication::setPalette(const QPalette &pal)
     emit qGuiApp->paletteChanged(*QGuiApplicationPrivate::app_pal);
 }
 
-QRect QGuiApplicationPrivate::applyWindowGeometrySpecification(const QRect &windowGeometry, const QWindow *window)
+void QGuiApplicationPrivate::applyWindowGeometrySpecificationTo(QWindow *window)
 {
-    return windowGeometrySpecification.apply(windowGeometry, window);
+    windowGeometrySpecification.applyTo(window);
 }
 
 /*!

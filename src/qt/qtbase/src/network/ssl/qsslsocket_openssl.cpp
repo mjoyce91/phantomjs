@@ -588,7 +588,10 @@ long QSslSocketPrivate::sslLibraryBuildVersionNumber()
 
 QString QSslSocketPrivate::sslLibraryBuildVersionString()
 {
-    return QLatin1String(OPENSSL_VERSION_TEXT);
+    // Using QStringLiteral to store the version string as unicode and
+    // avoid false positives from Google searching the playstore for old
+    // SSL versions. See QTBUG-46265
+    return QStringLiteral(OPENSSL_VERSION_TEXT);
 }
 
 /*!
@@ -1281,7 +1284,7 @@ void QSslSocketBackendPrivate::_q_caRootLoaded(QSslCertificate cert, QSslCertifi
     if (plainSocket)
         plainSocket->resume();
     paused = false;
-    if (checkSslErrors())
+    if (checkSslErrors() && ssl)
         continueHandshake();
 }
 
@@ -1518,14 +1521,20 @@ void QSslSocketBackendPrivate::continueHandshake()
     }
 
 #if OPENSSL_VERSION_NUMBER >= 0x1000100fL && !defined(OPENSSL_NO_TLSEXT) && !defined(OPENSSL_NO_NEXTPROTONEG)
-    const unsigned char *proto = 0;
-    unsigned int proto_len = 0;
-    q_SSL_get0_next_proto_negotiated(ssl, &proto, &proto_len);
-    if (proto_len)
-        configuration.nextNegotiatedProtocol = QByteArray(reinterpret_cast<const char *>(proto), proto_len);
-    else
-        configuration.nextNegotiatedProtocol.clear();
+
     configuration.nextProtocolNegotiationStatus = sslContextPointer->npnContext().status;
+    if (sslContextPointer->npnContext().status == QSslConfiguration::NextProtocolNegotiationUnsupported) {
+        // we could not agree -> be conservative and use HTTP/1.1
+        configuration.nextNegotiatedProtocol = QByteArrayLiteral("http/1.1");
+    } else {
+        const unsigned char *proto = 0;
+        unsigned int proto_len = 0;
+        q_SSL_get0_next_proto_negotiated(ssl, &proto, &proto_len);
+        if (proto_len)
+            configuration.nextNegotiatedProtocol = QByteArray(reinterpret_cast<const char *>(proto), proto_len);
+        else
+            configuration.nextNegotiatedProtocol.clear();
+    }
 #endif // OPENSSL_VERSION_NUMBER >= 0x1000100fL ...
 
     connectionEncrypted = true;

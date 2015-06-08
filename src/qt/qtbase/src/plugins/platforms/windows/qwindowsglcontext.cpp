@@ -597,6 +597,14 @@ static int choosePixelFormat(HDC hdc,
             break;
         if (iAttributes[samplesValuePosition] > 1) {
             iAttributes[samplesValuePosition] /= 2;
+        } else if (iAttributes[samplesValuePosition] == 1) {
+            // Fallback in case it is unable to initialize with any
+            // samples to avoid falling back to the GDI path
+            // NB: The sample attributes needs to be at the end for this
+            // to work correctly
+            iAttributes[samplesValuePosition - 1] = FALSE;
+            iAttributes[samplesValuePosition] = 0;
+            iAttributes[samplesValuePosition + 1] = 0;
         } else {
             break;
         }
@@ -1267,6 +1275,7 @@ bool QWindowsGLContext::makeCurrent(QPlatformSurface *surface)
 
     // Do we already have a DC entry for that window?
     QWindowsWindow *window = static_cast<QWindowsWindow *>(surface);
+    window->aboutToMakeCurrent();
     const HWND hwnd = window->handle();
     if (const QOpenGLContextData *contextData = findByHWND(m_windowContexts, hwnd)) {
         // Repeated calls to wglMakeCurrent when vsync is enabled in the driver will

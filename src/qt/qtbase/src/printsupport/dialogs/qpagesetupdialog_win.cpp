@@ -94,7 +94,7 @@ int QPageSetupDialog::exec()
     parent = parent ? parent->window() : QApplication::activeWindow();
     Q_ASSERT(!parent ||parent->testAttribute(Qt::WA_WState_Created));
 
-    QWindow *parentWindow = parent->windowHandle();
+    QWindow *parentWindow = parent ? parent->windowHandle() : 0;
     psd.hwndOwner = parentWindow ? (HWND)QGuiApplication::platformNativeInterface()->nativeResourceForWindow("handle", parentWindow) : 0;
 
     psd.Flags = PSD_MARGINS;
@@ -134,6 +134,13 @@ int QPageSetupDialog::exec()
 
         // copy from our temp DEVMODE struct
         if (!engine->globalDevMode() && hDevMode) {
+            // Make sure memory is allocated
+            if (ep->ownsDevMode && ep->devMode)
+                free(ep->devMode);
+            ep->devMode = (DEVMODE *) malloc(devModeSize);
+            ep->ownsDevMode = true;
+
+            // Copy
             void *src = GlobalLock(hDevMode);
             memcpy(ep->devMode, src, devModeSize);
             GlobalUnlock(hDevMode);

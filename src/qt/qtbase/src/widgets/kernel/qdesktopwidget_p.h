@@ -53,19 +53,19 @@ QT_BEGIN_NAMESPACE
 class QDesktopScreenWidget : public QWidget {
     Q_OBJECT
 public:
-    QDesktopScreenWidget(int screenNumber = -1) : QWidget(0, Qt::Desktop)
+    QDesktopScreenWidget() : QWidget(Q_NULLPTR, Qt::Desktop)
     {
         setVisible(false);
-        QTLWExtra *topData = d_func()->topData();
-        topData->screenIndex = screenNumber;
     }
+
+    int screenNumber() const;
 };
 
 class QDesktopWidgetPrivate : public QWidgetPrivate {
     Q_DECLARE_PUBLIC(QDesktopWidget)
 
 public:
-    ~QDesktopWidgetPrivate() {foreach(QDesktopScreenWidget *s, screens) delete s; }
+    ~QDesktopWidgetPrivate() { qDeleteAll(screens); }
     void _q_updateScreens();
     void _q_availableGeometryChanged();
 

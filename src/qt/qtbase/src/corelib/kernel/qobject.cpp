@@ -1475,7 +1475,7 @@ void QObject::moveToThread(QThread *targetThread)
                  currentData->thread, d->threadData->thread, targetData ? targetData->thread : Q_NULLPTR);
 
 #ifdef Q_OS_MAC
-        qWarning("On Mac OS X, you might be loading two sets of Qt binaries into the same process. "
+        qWarning("You might be loading two sets of Qt binaries into the same process. "
                  "Check that all plugins are compiled against the right Qt binaries. Export "
                  "DYLD_PRINT_LIBRARIES=1 and check that only one set of binaries are being loaded.");
 #endif
@@ -3710,13 +3710,14 @@ void QMetaObject::activate(QObject *sender, int signalOffset, int local_signal_i
             } else if (callFunction && c->method_offset <= receiver->metaObject()->methodOffset()) {
                 //we compare the vtable to make sure we are not in the destructor of the object.
                 locker.unlock();
+                const int methodIndex = c->method();
                 if (qt_signal_spy_callback_set.slot_begin_callback != 0)
-                    qt_signal_spy_callback_set.slot_begin_callback(receiver, c->method(), argv ? argv : empty_argv);
+                    qt_signal_spy_callback_set.slot_begin_callback(receiver, methodIndex, argv ? argv : empty_argv);
 
                 callFunction(receiver, QMetaObject::InvokeMetaMethod, method_relative, argv ? argv : empty_argv);
 
                 if (qt_signal_spy_callback_set.slot_end_callback != 0)
-                    qt_signal_spy_callback_set.slot_end_callback(receiver, c->method());
+                    qt_signal_spy_callback_set.slot_end_callback(receiver, methodIndex);
                 locker.relock();
             } else {
                 const int method = method_relative + c->method_offset;

@@ -308,11 +308,6 @@ void QXcbWindow::create()
         return;
     }
 
-    // Determine gravity from initial position. Do not change
-    // later as it will cause the window to move uncontrollably.
-    m_gravity = positionIncludesFrame(window()) ?
-                XCB_GRAVITY_NORTH_WEST : XCB_GRAVITY_STATIC;
-
     const quint32 mask = XCB_CW_BACK_PIXMAP | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_SAVE_UNDER | XCB_CW_EVENT_MASK;
     const quint32 values[] = {
         // XCB_CW_BACK_PIXMAP
@@ -732,6 +727,9 @@ void QXcbWindow::show()
 
         xcb_set_wm_hints(xcb_connection(), m_window, &hints);
 
+        m_gravity = positionIncludesFrame(window()) ?
+                    XCB_GRAVITY_NORTH_WEST : XCB_GRAVITY_STATIC;
+
         // update WM_NORMAL_HINTS
         propagateSizeHints();
 
@@ -766,6 +764,9 @@ void QXcbWindow::show()
 
     if (connection()->time() != XCB_TIME_CURRENT_TIME)
         updateNetWmUserTime(connection()->time());
+
+    if (window()->objectName() == QLatin1String("QSystemTrayIconSysWindow"))
+        return; // defer showing until XEMBED_EMBEDDED_NOTIFY
 
     Q_XCB_CALL(xcb_map_window(xcb_connection(), m_window));
 
@@ -2350,7 +2351,10 @@ void QXcbWindow::handleXEmbedMessage(const xcb_client_message_event_t *event)
     switch (event->data.data32[1]) {
     case XEMBED_WINDOW_ACTIVATE:
     case XEMBED_WINDOW_DEACTIVATE:
+        break;
     case XEMBED_EMBEDDED_NOTIFY:
+        Q_XCB_CALL(xcb_map_window(xcb_connection(), m_window));
+        m_screen->windowShown(this);
         break;
     case XEMBED_FOCUS_IN:
         Qt::FocusReason reason;

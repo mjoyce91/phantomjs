@@ -669,7 +669,7 @@ bool QIODevice::seek(qint64 pos)
     For some devices, atEnd() can return true even though there is more data
     to read. This special case only applies to devices that generate data in
     direct response to you calling read() (e.g., \c /dev or \c /proc files on
-    Unix and Mac OS X, or console input / \c stdin on all platforms).
+    Unix and OS X, or console input / \c stdin on all platforms).
 
     \sa bytesAvailable(), read(), isSequential()
 */
@@ -708,7 +708,7 @@ bool QIODevice::reset()
     number of bytes to allocate in a buffer before reading.
 
     Subclasses that reimplement this function must call the base
-    implementation in order to include the size of QIODevices' buffer. Example:
+    implementation in order to include the size of the buffer of QIODevice. Example:
 
     \snippet code/src_corelib_io_qiodevice.cpp 1
 
@@ -1666,6 +1666,23 @@ QString QIODevice::errorString() const
 
     \sa read(), write()
 */
+
+/*!
+  \internal
+  \fn int qt_subtract_from_timeout(int timeout, int elapsed)
+
+  Reduces the \a timeout by \a elapsed, taking into account that -1 is a
+  special value for timeouts.
+*/
+
+int qt_subtract_from_timeout(int timeout, int elapsed)
+{
+    if (timeout == -1)
+        return -1;
+
+    timeout = timeout - elapsed;
+    return timeout < 0 ? 0 : timeout;
+}
 
 
 #if !defined(QT_NO_DEBUG_STREAM)

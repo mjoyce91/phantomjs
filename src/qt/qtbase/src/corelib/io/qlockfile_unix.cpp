@@ -102,7 +102,7 @@ static QBasicAtomicInt fcntlOK = Q_BASIC_ATOMIC_INITIALIZER(-1);
 /*!
   \internal
   Checks that the OS isn't using POSIX locks to emulate flock().
-  Mac OS X is one of those.
+  OS X is one of those.
 */
 static bool fcntlWorksAfterFlock()
 {
@@ -181,11 +181,11 @@ bool QLockFilePrivate::isApparentlyStale() const
 {
     qint64 pid;
     QString hostname, appname;
-    if (!getLockInfo(&pid, &hostname, &appname))
-        return false;
-    if (hostname.isEmpty() || hostname == QString::fromLocal8Bit(localHostName())) {
-        if (::kill(pid, 0) == -1 && errno == ESRCH)
-            return true; // PID doesn't exist anymore
+    if (getLockInfo(&pid, &hostname, &appname)) {
+        if (hostname.isEmpty() || hostname == QString::fromLocal8Bit(localHostName())) {
+            if (::kill(pid, 0) == -1 && errno == ESRCH)
+                return true; // PID doesn't exist anymore
+        }
     }
     const qint64 age = QFileInfo(fileName).lastModified().msecsTo(QDateTime::currentDateTime());
     return staleLockTime > 0 && age > staleLockTime;

@@ -137,7 +137,8 @@ public:
         WithinCreate = 0x20000,
         WithinMaximize = 0x40000,
         MaximizeToFullScreen = 0x80000,
-        InputMethodDisabled =0x100000
+        InputMethodDisabled = 0x100000,
+        Compositing = 0x200000
     };
 
     QWindowsWindow(QWindow *window, const QWindowsWindowData &data);
@@ -250,6 +251,7 @@ public:
     void setWindowIcon(const QIcon &icon);
 
     void *surface(void *nativeConfig);
+    void aboutToMakeCurrent();
 
 #ifndef Q_OS_WINCE
     void setAlertState(bool enabled);
@@ -272,7 +274,7 @@ private:
     void destroyWindow();
     inline bool isDropSiteEnabled() const { return m_dropTarget != 0; }
     void setDropSiteEnabled(bool enabled);
-    void updateDropSite();
+    void updateDropSite(bool topLevel);
     void handleGeometryChange();
     void handleWindowStateChange(Qt::WindowState state);
     inline void destroyIcon();

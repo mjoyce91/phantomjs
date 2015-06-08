@@ -319,7 +319,7 @@ uint QTextFormatPrivate::recalcHash() const
 {
     hashValue = 0;
     for (QVector<Property>::ConstIterator it = props.constBegin(); it != props.constEnd(); ++it)
-        hashValue += (it->key << 16) + variantHash(it->value);
+        hashValue += (static_cast<quint32>(it->key) << 16) + variantHash(it->value);
 
     hashDirty = false;
 
@@ -1904,7 +1904,7 @@ void QTextCharFormat::setFont(const QFont &font)
 
     If \a behavior is QTextCharFormat::FontPropertiesAll, the font property that
     has not been explicitly set is treated like as it were set with default value;
-    If \a behavior is QTextCharFormat::FontPropertiesAll, the font property that
+    If \a behavior is QTextCharFormat::FontPropertiesSpecifiedOnly, the font property that
     has not been explicitly set is ignored and the respective property value
     remains unchanged.
 
@@ -1942,7 +1942,7 @@ void QTextCharFormat::setFont(const QFont &font, FontPropertiesInheritanceBehavi
         setFontFixedPitch(font.fixedPitch());
     if (mask & QFont::CapitalizationResolved)
         setFontCapitalization(font.capitalization());
-    if (mask & QFont::LetterSpacingResolved)
+    if (mask & QFont::WordSpacingResolved)
         setFontWordSpacing(font.wordSpacing());
     if (mask & QFont::LetterSpacingResolved) {
         setFontLetterSpacingType(font.letterSpacingType());

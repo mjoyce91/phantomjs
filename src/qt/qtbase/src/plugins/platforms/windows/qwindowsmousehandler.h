@@ -59,6 +59,8 @@ public:
     bool translateTouchEvent(QWindow *widget, HWND hwnd,
                              QtWindows::WindowsEventType t, MSG msg,
                              LRESULT *result);
+    bool translateScrollEvent(QWindow *window, HWND hwnd,
+                              MSG msg, LRESULT *result);
 
     static inline Qt::MouseButtons keyStateToMouseButtons(int);
     static inline Qt::KeyboardModifiers keyStateToModifiers(int);
@@ -79,6 +81,10 @@ private:
     QTouchDevice *m_touchDevice;
     bool m_leftButtonDown;
     QWindow *m_previousCaptureWindow;
+#ifdef Q_OS_WINCE
+//This is required to send a touch up if we don't get a second touch position any more
+    bool m_had2ndTouchPoint;
+#endif
 };
 
 Qt::MouseButtons QWindowsMouseHandler::keyStateToMouseButtons(int wParam)

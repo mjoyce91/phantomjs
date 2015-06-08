@@ -57,7 +57,8 @@ enum
     TouchEventFlag = 0x400000,
     ClipboardEventFlag = 0x800000,
     ApplicationEventFlag = 0x1000000,
-    ThemingEventFlag = 0x2000000
+    ThemingEventFlag = 0x2000000,
+    GenericEventFlag = 0x4000000, // Misc
 };
 
 enum WindowsEventType // Simplify event types
@@ -108,7 +109,9 @@ enum WindowsEventType // Simplify event types
     CompositionSettingsChanged = ThemingEventFlag + 2,
     DisplayChangedEvent = 437,
     SettingChangedEvent = DisplayChangedEvent + 1,
+    ScrollEvent = GenericEventFlag + 1,
     ContextMenu = 123,
+    GestureEvent = 124,
     UnknownEvent = 542
 };
 
@@ -144,6 +147,8 @@ inline QtWindows::WindowsEventType windowsEventType(UINT message, WPARAM wParamI
         return QtWindows::CursorEvent;
     case WM_MOUSELEAVE:
         return QtWindows::MouseEvent;
+    case WM_HSCROLL:
+        return QtWindows::ScrollEvent;
     case WM_MOUSEWHEEL:
     case WM_MOUSEHWHEEL:
         return QtWindows::MouseWheelEvent;
@@ -247,6 +252,8 @@ inline QtWindows::WindowsEventType windowsEventType(UINT message, WPARAM wParamI
     case WM_APPCOMMAND:
         return QtWindows::AppCommandEvent;
 #endif
+    case WM_GESTURE:
+        return QtWindows::GestureEvent;
     default:
         break;
     }
