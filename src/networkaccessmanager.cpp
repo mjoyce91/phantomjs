@@ -178,6 +178,7 @@ NetworkAccessManager::NetworkAccessManager(QObject* parent, const Config* config
         prepareSslConfiguration(config);
     }
 
+    setCookieJar(new CookieJar(config->cookiesFile()));
 
     connect(this, SIGNAL(authenticationRequired(QNetworkReply*, QAuthenticator*)), SLOT(provideAuthentication(QNetworkReply*, QAuthenticator*)));
 
@@ -312,18 +313,6 @@ void NetworkAccessManager::compileCaptureContentPatterns()
 
         m_compiledCaptureContentPatterns.append(QRegExp(*it, Qt::CaseInsensitive));
     }
-}
-
-
-void NetworkAccessManager::setCookieJar(QNetworkCookieJar* cookieJar)
-{
-    QNetworkAccessManager::setCookieJar(cookieJar);
-    // Remove NetworkAccessManager's ownership of this CookieJar and
-    // pass it to the PhantomJS Singleton object.
-    // CookieJar is shared between multiple instances of NetworkAccessManager.
-    // It shouldn't be deleted when the NetworkAccessManager is deleted, but
-    // only when close is called on the cookie jar.
-    cookieJar->setParent(Phantom::instance());
 }
 
 // protected:

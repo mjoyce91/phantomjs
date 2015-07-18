@@ -86,7 +86,7 @@ CookieJar::CookieJar(QString cookiesFile, QObject* parent)
     : QNetworkCookieJar(parent)
     , m_enabled(true)
 {
-    if (cookiesFile == "") {
+    if (cookiesFile.isEmpty()) {
         m_cookieStorage = 0;
         qDebug() << "CookieJar - Created but will not store cookies (use option '--cookies-file=<filename>' to enable persistent cookie storage)";
     } else {

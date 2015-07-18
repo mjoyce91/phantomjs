@@ -41,6 +41,7 @@
 #include "networkreplytracker.h"
 
 class Config;
+class CookieJar;
 class QNetworkDiskCache;
 class QSslConfiguration;
 
@@ -94,7 +95,10 @@ public:
     QStringList captureContent() const;
     void setCaptureContent(const QStringList& patterns);
 
-    void setCookieJar(QNetworkCookieJar* cookieJar);
+    CookieJar* getCookieJar() const
+    {
+        return reinterpret_cast<CookieJar*>(this->cookieJar());
+    }
 
 protected:
     bool m_ignoreSslErrors;

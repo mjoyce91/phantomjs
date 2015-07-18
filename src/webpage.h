@@ -382,7 +382,7 @@ public slots:
     /**
      * Allows to set cookie jar for this page.
      */
-    void setCookieJar(CookieJar* cookieJar);
+    void setCookieJar(QNetworkCookieJar* cookieJar);
 
     /**
      * Allows to set cookie jar in through QtWebKit Bridge
@@ -390,60 +390,14 @@ public slots:
     void setCookieJarFromQObject(QObject* cookieJar);
 
     /**
-     * Returns the CookieJar object
+     * Returns the QNetworkCookieJar object
      */
-    CookieJar* cookieJar();
+    QNetworkCookieJar* cookieJar();
 
-    /**
-     * Allows to set cookies by this Page, at the current URL.
-     * This means that loading new URLs, causes the cookies to change dynamically
-     * as in a normal desktop browser.
-     *
-     * Cookies are expected in the format:
-     * <pre>
-     * {
-     *   "name"     : "cookie name (string)",
-     *   "value"    : "cookie value (string)",
-     *   "domain"   : "cookie domain (string)",
-     *   "path"     : "cookie path (string, optional)",
-     *   "httponly" : "http only cookie (boolean, optional)",
-     *   "secure"   : "secure cookie (boolean, optional)",
-     *   "expires"  : "expiration date (string, GMT format, optional)"
-     * }
-     * </pre>
-     * @brief setCookies
-     * @param cookies Expects a QList of QVariantMaps
-     * @return Boolean "true" if at least 1 cookie was set
-     */
     bool setCookies(const QVariantList& cookies);
-    /**
-     * Cookies visible by this Page, at the current URL.
-     *
-     * @see WebPage::setCookies for details on the format
-     * @brief cookies
-     * @return QList of QVariantMap cookies visible to this Page, at the current URL.
-     */
     QVariantList cookies() const;
-    /**
-     * Add a Cookie in QVariantMap format
-     * @see WebPage::setCookies for details on the format
-     * @brief addCookie
-     * @param cookie Cookie in QVariantMap format
-     * @return Boolean "true" if cookie was added
-     */
     bool addCookie(const QVariantMap& cookie);
-    /**
-     * Delete cookie by name from the ones visible by this Page, at the current URL
-     * @brief deleteCookie
-     * @param cookieName Name of the Cookie to delete
-     * @return Boolean "true" if cookie was deleted
-     */
     bool deleteCookie(const QString& cookieName);
-    /**
-     * Delete All Cookies visible by this Page, at the current URL
-     * @brief clearCookies
-     * @return Boolean "true" if cookies were deleted
-     */
     bool clearCookies();
 
     /**
@@ -559,7 +513,6 @@ private:
     bool m_ownsPages;
     int m_loadingProgress;
     bool m_shouldInterruptJs;
-    CookieJar* m_cookieJar;
 
     friend class Phantom;
     friend class CustomPage;

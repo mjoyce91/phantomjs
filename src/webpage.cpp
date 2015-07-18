@@ -109,11 +109,6 @@ public:
         }
     }
 
-    void setCookieJar(CookieJar* cookieJar)
-    {
-        m_cookieJar = cookieJar;
-    }
-
 public slots:
     bool shouldInterruptJavaScript()
     {
@@ -234,7 +229,10 @@ protected:
             newPage = new WebPage(Phantom::instance());
             Phantom::instance()->m_pages.append(newPage);
         }
-        newPage->setCookieJar(m_cookieJar);
+
+        QNetworkCookieJar* cookieJar = this->networkAccessManager()->cookieJar();
+        cookieJar->setParent(0);
+        newPage->setCookieJar(cookieJar);
 
         // Apply default settings
         newPage->applySettings(Phantom::instance()->defaultPageSettings());
@@ -251,7 +249,6 @@ private:
     QString m_userAgent;
     QStringList m_uploadFiles;
     friend class WebPage;
-    CookieJar* m_cookieJar;
 };
 
 
@@ -811,11 +808,9 @@ void WebPage::setCaptureContent(const QStringList& patterns)
     m_networkAccessManager->setCaptureContent(patterns);
 }
 
-void WebPage::setCookieJar(CookieJar* cookieJar)
+void WebPage::setCookieJar(QNetworkCookieJar* cookieJar)
 {
-    m_cookieJar = cookieJar;
-    m_customWebPage->setCookieJar(m_cookieJar);
-    m_networkAccessManager->setCookieJar(m_cookieJar);
+    m_networkAccessManager->setCookieJar(cookieJar);
 }
 
 void WebPage::setCookieJarFromQObject(QObject* cookieJar)
@@ -823,41 +818,41 @@ void WebPage::setCookieJarFromQObject(QObject* cookieJar)
     setCookieJar(qobject_cast<CookieJar*>(cookieJar));
 }
 
-CookieJar* WebPage::cookieJar()
+QNetworkCookieJar* WebPage::cookieJar()
 {
-    return m_cookieJar;
+    return m_networkAccessManager->cookieJar();
 }
 
 bool WebPage::setCookies(const QVariantList& cookies)
 {
     // Delete all the cookies for this URL
-    m_cookieJar->deleteCookies(this->url());
+    m_networkAccessManager->getCookieJar()->deleteCookies(this->url());
     // Add a new set of cookies foor this URL
-    return m_cookieJar->addCookiesFromMap(cookies, this->url());
+    return m_networkAccessManager->getCookieJar()->addCookiesFromMap(cookies, this->url());
 }
 
 QVariantList WebPage::cookies() const
 {
-    // Return all the Cookies visible to this Page, as a list of Maps (aka JSON in JS space)
-    return m_cookieJar->cookiesToMap(this->url());
+    return m_networkAccessManager->getCookieJar()->cookiesToMap(this->url());
 }
 
 bool WebPage::addCookie(const QVariantMap& cookie)
 {
-    return m_cookieJar->addCookieFromMap(cookie, this->url());
+    return m_networkAccessManager->getCookieJar()->addCookieFromMap(cookie, this->url());
 }
 
 bool WebPage::deleteCookie(const QString& cookieName)
 {
     if (!cookieName.isEmpty()) {
-        return m_cookieJar->deleteCookie(cookieName, this->url());
+        m_networkAccessManager->getCookieJar()->deleteCookie(cookieName);
+        return true;
     }
     return false;
 }
 
 bool WebPage::clearCookies()
 {
-    return m_cookieJar->deleteCookies(this->url());
+    return m_networkAccessManager->getCookieJar()->deleteCookies(this->url());
 }
 
 void WebPage::openUrl(const QString& address, const QVariant& op, const QVariantMap& settings)
@@ -1676,7 +1671,6 @@ void WebPage::handleRepaintRequested(const QRect& dirtyRect)
 {
     emit repaintRequested(dirtyRect.x(), dirtyRect.y(), dirtyRect.width(), dirtyRect.height());
 }
-
 
 void WebPage::stopJavaScript()
 {
