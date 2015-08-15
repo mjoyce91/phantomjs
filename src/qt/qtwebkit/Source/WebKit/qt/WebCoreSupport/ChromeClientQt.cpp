@@ -308,16 +308,12 @@ void ChromeClientQt::setResizable(bool)
     notImplemented();
 }
 
-void ChromeClientQt::addMessageToConsole(MessageSource, MessageLevel level, const String& message, unsigned lineNumber, unsigned columnNumber, const String& sourceID, const String& stack)
+void ChromeClientQt::addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, unsigned columnNumber, const String& sourceID)
 {
     QString x = message;
     QString y = sourceID;
     UNUSED_PARAM(columnNumber);
-    if (level == ErrorMessageLevel) {
-        m_webPage->javaScriptError(x, lineNumber, y, stack);
-    } else {
-        m_webPage->javaScriptConsoleMessage(x, lineNumber, y);
-    }
+    m_webPage->javaScriptConsoleMessage(x, lineNumber, y);
 }
 
 void ChromeClientQt::chromeDestroyed()

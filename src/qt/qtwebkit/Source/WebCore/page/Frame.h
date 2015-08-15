@@ -143,9 +143,6 @@ namespace WebCore {
         Settings* settings() const; // can be NULL
 
         void setPrinting(bool printing, const FloatSize& pageSize, const FloatSize& originalPageSize, float maximumShrinkRatio, AdjustViewSizeOrNot);
-        void addResetPage(int page);
-        void getPagination(int page, int pages, int &logicalPage, int &logicalPages) const;
-
         bool shouldUsePrintingLayout() const;
         FloatSize resizePageRectsKeepingRatio(const FloatSize& originalSize, const FloatSize& expectedSize);
 
@@ -234,7 +231,6 @@ namespace WebCore {
 #endif
 
         bool m_inViewSourceMode;
-        Vector<int> m_pageResets;
 
 #if USE(TILED_BACKING_STORE)
     // FIXME: The tiled backing store belongs in FrameView, not Frame.

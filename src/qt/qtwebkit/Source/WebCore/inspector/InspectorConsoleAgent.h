@@ -70,11 +70,11 @@ public:
     virtual void clearFrontend();
     virtual void restore();
 
-    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, ScriptState*, ScriptArguments*, unsigned long requestIdentifier = 0);
+    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, ScriptState*, PassRefPtr<ScriptArguments>, unsigned long requestIdentifier = 0);
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, const String& scriptId, unsigned lineNumber, unsigned columnNumber, ScriptState* = 0, unsigned long requestIdentifier = 0);
 
     // FIXME: Remove once we no longer generate stacks outside of Inspector.
-    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, ScriptCallStack*, unsigned long requestIdentifier = 0);
+    void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, PassRefPtr<ScriptCallStack>, unsigned long requestIdentifier = 0);
 
     Vector<unsigned> consoleMessageArgumentCounts();
 
