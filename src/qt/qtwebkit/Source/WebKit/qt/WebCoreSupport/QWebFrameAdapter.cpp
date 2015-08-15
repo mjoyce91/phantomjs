@@ -202,7 +202,8 @@ QVariant QWebFrameAdapter::evaluateJavaScript(const QString &scriptSource, const
 
     if (scriptController) {
         int distance = 0;
-        ScriptValue value = scriptController->executeScript(ScriptSourceCode(scriptSource, String(location)));
+        KURL url(WebCore::ParsedURLString, String(location));
+        ScriptValue value = scriptController->executeScript(ScriptSourceCode(scriptSource, url));
         JSC::ExecState* exec = scriptController->globalObject(mainThreadNormalWorld())->globalExec();
         JSValueRef* ignoredException = 0;
         exec->vm().apiLock().lock();

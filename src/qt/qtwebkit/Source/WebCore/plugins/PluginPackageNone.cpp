@@ -42,6 +42,16 @@ bool PluginPackage::load()
     return false;
 }
 
+unsigned PluginPackage::hash() const
+{
+    return 0;
+}
+
+bool PluginPackage::equal(const PluginPackage&, const PluginPackage&)
+{
+    return false;
+}
+
 #if ENABLE(NETSCAPE_PLUGIN_API)
 uint16_t PluginPackage::NPVersion() const
 {

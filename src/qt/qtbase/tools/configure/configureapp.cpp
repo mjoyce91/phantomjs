@@ -2121,9 +2121,9 @@ QString Configure::defaultTo(const QString &option)
         && dictionary["QMAKESPEC"].contains("msvc"))
         return "auto";
 
-    if (option == "SYNCQT"
-        && (!QFile::exists(sourcePath + "/.git")))
-        return "no";
+    // force sync
+    if (option == "SYNCQT")
+        return "yes";
 
     return "yes";
 }
