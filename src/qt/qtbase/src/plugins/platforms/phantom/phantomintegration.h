@@ -48,11 +48,12 @@
 
 #include <QPixmap>
 
+QT_BEGIN_NAMESPACE
+
 class QWindowSurface;
 
 class PhantomPlatformNativeInterface : public QPlatformNativeInterface
 {
-public:
 };
 
 class PhantomScreen : public QPlatformScreen
@@ -61,10 +62,10 @@ public:
     PhantomScreen()
         : mDepth(32), mFormat(QImage::Format_ARGB32_Premultiplied) {}
 
-    QRect geometry() const { return mGeometry; }
-    QSizeF physicalSize() const { return mPhysicalSize; }
-    int depth() const { return mDepth; }
-    QImage::Format format() const { return mFormat; }
+    QRect geometry() const Q_DECL_OVERRIDE { return mGeometry; }
+    QSizeF physicalSize() Q_DECL_OVERRIDE const { return mPhysicalSize; }
+    int depth() const Q_DECL_OVERRIDE { return mDepth; }
+    QImage::Format format() const Q_DECL_OVERRIDE { return mFormat; }
 
 public:
     QRect mGeometry;
@@ -79,17 +80,20 @@ public:
     PhantomIntegration();
     ~PhantomIntegration();
 
-    bool hasCapability(QPlatformIntegration::Capability cap) const;
+    bool hasCapability(QPlatformIntegration::Capability cap) const Q_DECL_OVERRIDE;
 
-    QPlatformWindow *createPlatformWindow(QWindow *window) const;
-    QPlatformBackingStore *createPlatformBackingStore(QWindow *window) const;
-    QAbstractEventDispatcher *createEventDispatcher() const;
+    QPlatformWindow *createPlatformWindow(QWindow *window) const Q_DECL_OVERRIDE;
+    QPlatformBackingStore *createPlatformBackingStore(QWindow *window) const Q_DECL_OVERRIDE;
+    QAbstractEventDispatcher *createEventDispatcher() const Q_DECL_OVERRIDE;
 
-    QPlatformFontDatabase *fontDatabase() const;
-    QPlatformNativeInterface *nativeInterface() const;
+    QPlatformFontDatabase *fontDatabase() const Q_DECL_OVERRIDE;
+    QPlatformNativeInterface *nativeInterface() const Q_DECL_OVERRIDE;
 
 private:
+    //mutable QPlatformFontDatabase *m_platformFontDatabase;
     PhantomPlatformNativeInterface *m_phantomPlatformNativeInterface;
 };
+
+QT_END_NAMESPACE
 
 #endif // PHANTOMINTEGRATION_H

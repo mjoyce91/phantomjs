@@ -43,15 +43,17 @@
 #include <qpa/qplatformintegrationplugin.h>
 #include "phantomintegration.h"
 
+QT_BEGIN_NAMESPACE
+
 class PhantomIntegrationPlugin : public QPlatformIntegrationPlugin
 {
     Q_OBJECT
-    Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QPA.QPlatformIntegrationFactoryInterface.5.2" FILE "phantom.json")
+    Q_PLUGIN_METADATA(IID QPlatformIntegrationFactoryInterface_iid FILE "phantom.json")
 public:
-    PhantomIntegration *create(const QString&, const QStringList&);
+    QPlatformIntegration *create(const QString&, const QStringList&) Q_DECL_OVERRIDE;
 };
 
-PhantomIntegration *PhantomIntegrationPlugin::create(const QString& system, const QStringList& paramList)
+QPlatformIntegration *PhantomIntegrationPlugin::create(const QString& system, const QStringList& paramList)
 {
     Q_UNUSED(paramList)
     if (!system.compare(QLatin1String("phantom"), Qt::CaseInsensitive))

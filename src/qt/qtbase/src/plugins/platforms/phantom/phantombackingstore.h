@@ -46,18 +46,22 @@
 #include <qpa/qplatformwindow.h>
 #include <QImage>
 
+QT_BEGIN_NAMESPACE
+
 class PhantomBackingStore : public QPlatformBackingStore
 {
 public:
     PhantomBackingStore(QWindow *window);
     ~PhantomBackingStore();
 
-    QPaintDevice *paintDevice();
-    void flush(QWindow *window, const QRegion &region, const QPoint &offset);
-    void resize(const QSize &size, const QRegion &staticContents);
+    QPaintDevice *paintDevice() Q_DECL_OVERRIDE;
+    void flush(QWindow *window, const QRegion &region, const QPoint &offset) Q_DECL_OVERRIDE;
+    void resize(const QSize &size, const QRegion &staticContents) Q_DECL_OVERRIDE;
 
 private:
     QImage mImage;
 };
+
+QT_END_NAMESPACE
 
 #endif // PHANTOMBACKINGSTORE_H

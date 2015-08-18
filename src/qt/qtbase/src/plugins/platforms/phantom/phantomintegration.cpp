@@ -52,6 +52,8 @@
 
 #include <QtPlatformSupport/private/qgenericunixeventdispatcher_p.h>
 
+QT_BEGIN_NAMESPACE
+
 PhantomIntegration::PhantomIntegration()
 {
     PhantomScreen *mPrimaryScreen = new PhantomScreen();
@@ -96,6 +98,18 @@ QPlatformBackingStore* PhantomIntegration::createPlatformBackingStore(QWindow* w
     return new PhantomBackingStore(window);
 }
 
+/*QPlatformFontDatabase *PhantomIntegration::fontDatabase() const
+{
+    if (!m_platformFontDatabase) {
+#if defined(Q_OS_MAC)
+        m_platformFontDatabase = new QCoreTextFontDatabase();
+#else
+        m_platformFontDatabase = new QGenericUnixFontDatabase();
+#endif
+    }
+    return m_platformFontDatabase;
+}*/
+
 QPlatformFontDatabase *PhantomIntegration::fontDatabase() const
 {
     static QPlatformFontDatabase *db = 0;
@@ -118,3 +132,5 @@ QPlatformNativeInterface *PhantomIntegration::nativeInterface() const
 {
     return m_phantomPlatformNativeInterface;
 }
+
+QT_END_NAMESPACE
