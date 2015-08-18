@@ -4030,7 +4030,7 @@ if true; then ###[ '!' -f "$outpath/bin/qmake" ];
 
         echo "BUILD_PATH = .." >> "$mkfile"
         echo "SOURCE_PATH = $adjrelpath" >> "$mkfile"
-        echo "INC_PATH = $(BUILD_PATH)/include" >> "$mkfile"
+        echo 'INC_PATH = $(BUILD_PATH)/include' >> "$mkfile"
         echo "QMAKESPEC = $adjqmakespec" >> "$mkfile"
         echo "QT_VERSION = $QT_VERSION" >> "$mkfile"
         echo "EXTRA_CFLAGS = $EXTRA_CFLAGS" >> "$mkfile"
