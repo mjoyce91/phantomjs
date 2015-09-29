@@ -6955,7 +6955,12 @@ fi
 if [ '!' -z "$OPENSSL_LIBS" ]; then
     echo "OPENSSL_LIBS = $OPENSSL_LIBS" >> "$QTMODULE.tmp"
 elif [ "$CFG_OPENSSL" = "linked" ]; then
-    echo "OPENSSL_LIBS = -lssl -lcrypto" >> "$QTMODULE.tmp"
+    # fixme: switch to pkg-config
+    if [ "$CFG_STATIC_DEPS" = "yes" ]; then
+        echo "OPENSSL_LIBS = -lssl -lcrypto -ldl" >> "$QTMODULE.tmp"
+    else
+        echo "OPENSSL_LIBS = -lssl -lcrypto" >> "$QTMODULE.tmp"
+    fi
 fi
 
 # cmdline args
