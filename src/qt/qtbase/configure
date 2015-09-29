@@ -612,6 +612,7 @@ CFG_PSQL_CONFIG=
 CFG_DEBUG_RELEASE=no
 CFG_FORCEDEBUGINFO=no
 CFG_SHARED=yes
+CFG_STATIC_DEPS=no
 CFG_SM=auto
 CFG_XSHAPE=auto
 CFG_XSYNC=auto
@@ -758,6 +759,7 @@ CFG_ALSA=auto
 CFG_PULSEAUDIO=auto
 CFG_COREWLAN=auto
 CFG_ICU=auto
+CFG_ICU_STATIC=no
 CFG_FORCE_ASSERTS=no
 CFG_SANITIZERS=none
 CFG_SANITIZE_ADDRESS=no
@@ -1483,6 +1485,17 @@ while [ "$#" -gt 0 ]; do
             UNKNOWN_OPT=yes
         fi
         ;;
+     static-deps)
+        if [ "$CFG_SHARED" = "no" ]; then
+            if [ "$VAL" = "yes" ] || [ "$VAL" = "no" ]; then
+                CFG_STATIC_DEPS="$VAL"
+            else
+                UNKNOWN_OPT=yes
+            fi
+        else
+            CFG_STATIC_DEPS=no
+        fi
+        ;;
     fatal_error)
         if [ "$VAL" = "yes" ] || [ "$VAL" = "no" ]; then
             CFG_CONFIGURE_EXIT_ON_ERROR="$VAL"
@@ -2198,6 +2211,13 @@ while [ "$#" -gt 0 ]; do
     icu)
         if [ "$VAL" = "yes" ] || [ "$VAL" = "no" ]; then
             CFG_ICU="$VAL"
+        else
+            UNKNOWN_OPT=yes
+        fi
+        ;;
+     icu-static)
+        if [ "$VAL" = "yes" ] || [ "$VAL" = "no"]; then
+            CFG_ICU_STATIC="$VAL"
         else
             UNKNOWN_OPT=yes
         fi
@@ -5218,7 +5238,11 @@ fi
 if [ "$CFG_FONTCONFIG" != "no" ]; then
     if [ -n "$PKG_CONFIG" ] && $PKG_CONFIG --exists fontconfig --exists freetype2 2>/dev/null; then
         QT_CFLAGS_FONTCONFIG=`$PKG_CONFIG --cflags fontconfig --cflags freetype2 2>/dev/null`
-        QT_LIBS_FONTCONFIG=`$PKG_CONFIG --libs fontconfig --libs freetype2 2>/dev/null`
+        if [ -n "$CFG_STATIC_DEPS" ]; then
+            QT_LIBS_FONTCONFIG=`$PKG_CONFIG --static --libs fontconfig --libs freetype2 2>/dev/null`
+        else
+            QT_LIBS_FONTCONFIG=`$PKG_CONFIG --libs fontconfig --libs freetype2 2>/dev/null`
+        fi
     else
         QT_CFLAGS_FONTCONFIG=
         QT_LIBS_FONTCONFIG="-lfreetype -lfontconfig"
@@ -6150,6 +6174,8 @@ if [ "$CFG_EVENTFD" = "yes" ]; then
 fi
 if [ "$CFG_LIBJPEG" = "no" ]; then
     CFG_JPEG="no"
+elif [ "$CFG_LIBJPEG" = "qt" ]; then
+    QT_CONFIG="$QT_CONFIG qt-jpeg"
 elif [ "$CFG_LIBJPEG" = "system" ]; then
     QT_CONFIG="$QT_CONFIG system-jpeg"
 fi
@@ -6163,6 +6189,8 @@ if [ "$CFG_LIBPNG" = "no" ]; then
 fi
 if [ "$CFG_LIBPNG" = "system" ]; then
     QT_CONFIG="$QT_CONFIG system-png"
+elif [ "$CFG_LIBPNG" = "qt" ]; then
+    QT_CONFIG="$QT_CONFIG qt-png"
 fi
 if [ "$CFG_PNG" = "no" ]; then
     QT_CONFIG="$QT_CONFIG no-png"
@@ -6529,6 +6557,16 @@ if [ "$CFG_SHARED" = "no" ]; then
 /* Qt was configured for a static build */
 #if !defined(QT_SHARED) && !defined(QT_STATIC)
 # define QT_STATIC
+#endif
+
+EOF
+fi
+
+if [ "$CFG_ICU" = "yes" ] && [ "$CFG_ICU_STATIC" = "yes" ]; then
+    cat >>"$outpath/src/corelib/global/qconfig.h.new" <<EOF
+/* ICU was configured for a static build */
+#if !defined(U_STATIC_IMPLEMENTATION)
+#define U_STATIC_IMPLEMENTATION
 #endif
 
 EOF

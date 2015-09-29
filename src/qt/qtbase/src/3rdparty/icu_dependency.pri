@@ -5,6 +5,7 @@ win32 {
         } else {
             LIBS_PRIVATE += -lsicuin -lsicuuc -lsicudt
         }
+        LIBS +=  -lsicudata
     } else {
         LIBS_PRIVATE += -licuin -licuuc -licudt
     }

@@ -164,7 +164,7 @@ QT_CFG+=' -openssl -openssl-linked'
 
 # ICU support in QtBase is reported to be unnecessary for Darwin.
 if [[ $OSTYPE != darwin* ]]; then
-    QT_CFG+=' -icu'
+    QT_CFG+=' -icu -icu-static'
 fi
 
 # Configurable libraries.
