@@ -37,6 +37,7 @@ ghostdriver.SessionReqHand = function(session) {
         ELEMENTS        : "elements",
         ELEMENT_DIR     : "/element/",
         ACTIVE          : "active",
+        ALERT           : "alert_text",
         TITLE           : "title",
         WINDOW          : "window",
         CURRENT         : "current",
@@ -104,6 +105,9 @@ ghostdriver.SessionReqHand = function(session) {
             return;
         } else if (req.urlParsed.chunks[0] === _const.WINDOW) {
             _doWindowHandleCommands(req, res);
+            return;
+        } else if (req.urlParsed.chunks[0] === _const.ALERT && req.method === "GET") {
+            _getAlertCommand(req, res);
             return;
         } else if (req.urlParsed.file === _const.ELEMENT && req.method === "POST" && req.urlParsed.chunks.length === 1) {    //< ".../element"
             _locator.handleLocateCommand(req, res, _locator.locateElement);
@@ -446,6 +450,12 @@ ghostdriver.SessionReqHand = function(session) {
         } else {
             throw _errors.createInvalidReqMissingCommandParameterEH(req);
         }
+    },
+
+    _getAlertCommand = function (req, res) {
+
+        // Gets the text of the currently displayed JavaScript alert(), confirm(), or prompt() dialog.
+        _session.getId();
     },
 
     _getWindowHandle = function (req, res) {
